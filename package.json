@@ -1,0 +1,35 @@
+{
+  "name": "stealthbrowser",
+  "version": "1.0.0",
+  "description": "Ephemeral privacy browser launcher: a fresh profile and identity on every launch.",
+  "main": "src/index.js",
+  "bin": {
+    "stealthbrowser": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node src/index.js --check"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {},
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andralutfir/stealthbrowser.git"
+  },
+  "keywords": [
+    "privacy",
+    "browser",
+    "fingerprint",
+    "chromium",
+    "devtools-protocol",
+    "disposable"
+  ],
+  "os": [
+    "win32",
+    "linux",
+    "darwin"
+  ]
+}

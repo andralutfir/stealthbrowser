@@ -1,0 +1,16 @@
+# Session output
+logs/
+macros/
+
+# Browsers fetched by the tool (190-340 MB each)
+browsers/
+
+# Your own settings; config.example.json is the documented template
+config.json
+config.local.json
+config.json.bak
+
+# Build artifact - rebuild with build-exe.cmd
+StealthBrowser.exe
+
+node_modules/

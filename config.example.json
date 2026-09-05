@@ -1,0 +1,391 @@
+{
+  // ==========================================================================
+  //  stealthbrowser - full example config
+  //  Copy to config.json and change what you need.
+  //  // and /* */ comments are allowed in this file.
+  //  Every value below is the DEFAULT; delete anything you do not change.
+  // ==========================================================================
+
+  // "auto" picks the first installed browser. Also: "chrome" | "brave" | "edge"
+  // | "vivaldi" | "opera" | "chromium" | "downloaded" | a path to an executable.
+  "browser": "auto",
+
+  // ==========================================================================
+  //  Getting a browser
+  //  If the machine has none, one is fetched automatically: Chrome for Testing,
+  //  Google's own versioned build, shipped as a plain ZIP. Nothing is installed,
+  //  no administrator rights are needed and no system settings are touched - it
+  //  just lands in a folder next to this project, and deleting that folder
+  //  undoes it completely.
+  //  An already-installed browser is always preferred over a download.
+  // ==========================================================================
+  "downloadBrowser": {
+    // Fetch one automatically the first time no browser can be found.
+    // Set false to be told instead, and fetch it yourself with
+    //   node src/index.js --install-browser chrome
+    //   node src/index.js --install-browser chromium
+    //   node src/index.js --install-browser brave
+    "auto": true,
+
+    // Channel for the automatic fetch. Chrome offers Stable/Beta/Dev/Canary;
+    // Chromium publishes Snapshot; Brave publishes whatever its latest release
+    // is. An unknown channel falls back to the first one available.
+    "channel": "Stable",
+
+    // Where they land. Relative paths sit next to the project.
+    // Roughly 190-340 MB per browser.
+    "dir": "browsers"
+  },
+
+  "startup": {
+    // URLs opened when the browser launches. More than one = more than one tab.
+    // Leave as ["about:blank"] to open nothing in particular.
+    "urls": ["https://google.com"],
+
+    // "random"    -> window size follows the persona (different every launch)
+    // "maximized"
+    // "1280x800"
+    // Ignored when instances.count > 1; tiling decides the geometry there.
+    "windowSize": "random",
+
+    // Add incognito ON TOP of the disposable profile. Rarely needed, since the
+    // profile is thrown away on exit anyway.
+    "incognito": false,
+
+    // true  = tabs are opened over DevTools AFTER all spoofing is armed.
+    //         This is what stops the first page from reading real values.
+    // false = URLs go on the command line (marginally faster, but the page may
+    //         start loading before the overrides land).
+    "deferUrls": true
+  },
+
+  // ==========================================================================
+  //  How many browsers open at once, and how they are arranged on screen.
+  //  Identities are NEVER shared between instances - only the geometry is.
+  // ==========================================================================
+  "instances": {
+    // 1 = single. 3 or 4 = several browsers side by side.
+    "count": 1,
+
+    // "tile"    -> split the monitor into tall, full-height columns
+    // "cascade" -> stack windows with a stepped offset
+    // "none"    -> leave window placement alone
+    "layout": "tile",
+
+    // Force a column count. null derives it from `count`.
+    "columns": null,
+
+    // More windows than this in one row wraps onto a second row.
+    "maxPerRow": 6,
+
+    // Space between tiles, in pixels.
+    "gap": 0,
+
+    // Override monitor detection: { "width": 2560, "height": 1400 }
+    "monitor": null,
+
+    // Delay between launches so several cold starts do not fight for the disk.
+    "staggerMs": 700
+  },
+
+  // ==========================================================================
+  //  Status page
+  //  When true, the first tab of every session is a local summary showing the
+  //  current public IP, the identity in use, and what websites actually see -
+  //  so a failed override is visible immediately. The URLs in startup.urls
+  //  still open right after it.
+  //  The page is served from 127.0.0.1 by the launcher itself with no external
+  //  files, so it appears instantly.
+  // ==========================================================================
+  "statusPage": {
+    "enabled": false,
+
+    // Which view the page opens in: "simple" reads as sentences and flags only
+    // what needs attention; "advanced" is the full side-by-side check. Both are
+    // one click apart on the page itself, this only picks the starting one.
+    "mode": "advanced",
+
+    // Looked up from inside the browser, over this session's own connection -
+    // so the address already accounts for interface binding and any proxy.
+    // Set false if you want no outbound request at all when the browser opens.
+    "checkIp": true,
+
+    // Must return JSON and allow CORS.
+    // The default also reports city / country / ISP.
+    "ipService": "https://ipinfo.io/json",
+
+    // Used when the primary service fails or rate-limits.
+    "ipFallback": "https://api.ipify.org?format=json",
+
+    // Score the address a site would see: residential or datacenter, flagged
+    // as a proxy or not, and whether its timezone agrees with the browser's.
+    // Every deduction is shown with its weight, so the number can be checked.
+    "checkQuality": true,
+    // Free and keyless. Plain HTTP is what that tier serves; the status page is
+    // local HTTP too, so nothing is downgraded. Point this at another service
+    // that reports proxy/hosting/mobile under the same names to use it instead.
+    "qualityService": "http://ip-api.com/json/?fields=status,message,country,countryCode,city,timezone,isp,org,as,reverse,mobile,proxy,hosting,query"
+  },
+
+  // ==========================================================================
+  //  The app (StealthBrowser.exe) only. The CLI ignores this.
+  //  "simple"   -> one page: browser, pages, windows, connection, data saving
+  //  "advanced" -> the full settings surface, one section per config area
+  // ==========================================================================
+  "gui": {
+    "mode": "advanced"
+  },
+
+  // ==========================================================================
+  //  Identity. Every part stays consistent: timezone, languages and
+  //  geolocation always come from the same location bundle.
+  // ==========================================================================
+  "identity": {
+    "randomize": true,
+
+    // null     = a brand-new persona every launch (usually what you want)
+    // "string" = the exact same persona every time (testing / debugging)
+    // In multi mode the seed is still varied per instance automatically.
+    "seed": null,
+
+    // "auto" = keep the host OS. Claiming a different OS is far easier to
+    // detect, because many other signals (fonts, GPU, WebGL) do not follow.
+    "platform": "auto",
+
+    // Restrict the location pool, e.g. ["en-US", "id-ID", "ja-JP"].
+    // Empty = all 18 bundles (US, UK, DE, FR, NL, ES, IT, PL, SE, BR, ID, JP,
+    // KR, SG, AU, CA).
+    "locales": [],
+
+    // "random" or a specific IANA zone such as "Asia/Jakarta".
+    "timezone": "random",
+
+    // "random" or a literal User-Agent string.
+    "userAgent": "random",
+
+    // Vary the browser build/patch numbers slightly. The major version is
+    // always left truthful - claiming another one is caught by feature
+    // detection immediately.
+    "driftVersion": true,
+
+    "spoof": {
+      "userAgent": true,      // UA + Client Hints (Sec-CH-UA) + HTTP headers
+      "locale": true,         // navigator.language(s) + Accept-Language
+      "timezone": true,       // Intl + Date().getTimezoneOffset()
+      "geolocation": true,    // coordinates consistent with the timezone
+      "screen": true,         // screen.*, devicePixelRatio, outer/inner
+      "hardware": true,       // hardwareConcurrency, deviceMemory
+      "webgl": true,          // GPU vendor + renderer
+      "webglNoise": true,     // subtle noise in readPixels()
+      "canvasNoise": true,    // canvas fingerprint differs per session, stable within it
+      "audioNoise": true,     // AudioContext fingerprint
+
+      // Sub-pixel noise on text and element metrics. OFF by default because it
+      // can visibly break some layouts.
+      "fontNoise": false,
+
+      // Only needed when DevTools is disabled; normally CDP handles this.
+      "uaDataFallback": false
+    }
+  },
+
+  // ==========================================================================
+  //  Network
+  // ==========================================================================
+  "network": {
+    // "auto"         -> use the OS default route
+    // "wifi"         -> the WiFi adapter
+    // "lan"          -> the Ethernet adapter
+    // "vpn"          -> a VPN adapter (WireGuard/OpenVPN/NordLynx/...)
+    // "lan2"         -> the second Ethernet adapter, e.g. one on a USB-C dock.
+    //                   Any alias takes a number: lan1, lan2, wifi2, vpn2.
+    //                   Numbering follows the order in --list-interfaces.
+    // "Ethernet 2"   -> an exact adapter name (see --list-interfaces)
+    // "192.168.5.20" -> a source IP address directly
+    //
+    // A bare alias is refused when several adapters of that kind are active,
+    // rather than quietly picking one: believing traffic left by one adapter
+    // while it left by another is the sort of mistake this tool exists to stop.
+    "interface": "auto",
+
+    // A single proxy. Authentication is supported, including SOCKS5 with a
+    // username and password, which Chromium itself cannot do.
+    //   "http://user:pass@host:8080"
+    //   "socks5://user:pass@host:1080"
+    "proxy": null,
+
+    // One proxy per instance in multi mode. If there are more instances than
+    // proxies the list cycles. Overrides "proxy" above when non-empty.
+    "proxies": [],
+
+    // Resolvers for the local proxy. Empty = follow the system DNS.
+    // When an interface is bound, DNS queries are bound to it as well.
+    "dnsServers": [],
+
+    // Stop WebRTC from leaking the real LAN/public IP even behind a proxy.
+    "blockWebRTC": true,
+
+    // Hostnames the local proxy refuses, subdomains included. Only active when
+    // the local proxy runs (an interface is bound, or a proxy is configured).
+    "blockHosts": []
+  },
+
+  // ==========================================================================
+  //  Bandwidth saving
+  //  The rule here is that pages must still work, so the default tier only
+  //  removes traffic you never actually look at.
+  //
+  //    "off"      -> nothing is changed
+  //    "balanced" -> block ad/tracker payloads and video/audio streams, stop
+  //                  autoplay, and send Save-Data so CDNs serve lighter assets.
+  //                  Images, CSS and scripts are untouched: nothing breaks.
+  //    "strict"   -> also drop images and web fonts. Pages stay readable and
+  //                  clickable, but look plain and lose icon fonts.
+  // ==========================================================================
+  "bandwidth": {
+    "mode": "off",
+
+    // Each of these overrides the preset for the chosen mode. Leave them null
+    // to follow the mode. Example: mode "strict" but keep images ->
+    //   "mode": "strict", "blockImages": false
+    "blockAds": null,
+    "blockMedia": null,
+    "blockAutoplay": null,
+    "blockImages": null,
+    "blockFonts": null,
+    "saveDataHeader": null,
+
+    // Extra URL patterns to block, e.g. ["*.gif*", "*cdn.example.com*"].
+    "extraBlockPatterns": [],
+
+    // Leave captcha and bot-check frames alone: hCaptcha, reCAPTCHA, Turnstile,
+    // Arkose, GeeTest, DataDome and friends keep their images, fonts and audio
+    // challenge. Without this, strict mode turns a puzzle grid into empty boxes
+    // and there is no way past the page. Costs a few hundred KB, once.
+    "allowChallenges": true,
+
+    // In-session HTTP cache size in MB. The profile is disposable, so this only
+    // helps within a single session - but that is where re-downloads happen.
+    "diskCacheMB": 256,
+
+    // Print how much was actually downloaded when the session ends.
+    "report": true
+  },
+
+  // ==========================================================================
+  //  Macro replay
+  //  Point `file` at a recording (any .jsonl from a recorded session) or a
+  //  saved macro (.json) and this session performs it again: the same clicks,
+  //  the same text in the same fields, the same submits, in the same order.
+  //  It runs inside a normal session, so the identity and profile are still
+  //  fresh - the same actions from a different-looking browser.
+  // ==========================================================================
+  "macro": {
+    "file": null,
+
+    // 1 = original pacing, 2 = twice as fast, 0.5 = half speed.
+    "speed": 1,
+
+    // Ceiling on the wait between steps, so a long pause while recording does
+    // not become a long pause on replay.
+    "maxDelayMs": 3000,
+
+    // How long to wait for an element to appear before giving up on a step.
+    "waitForMs": 10000,
+
+    // Stop at the first step that cannot be performed, rather than carrying on.
+    "stopOnMissing": false,
+
+    // Values for fields the recording masked, keyed by selector:
+    //   "secrets": { "#password": "hunter2" }
+    "secrets": {}
+  },
+
+  // ==========================================================================
+  //  Debug / logging
+  //  RECORDED: navigation, requests, responses, console output, errors, and
+  //  interactions (which element was clicked, which form was submitted).
+  //  NEVER RECORDED: typed text, password field contents, cookie values,
+  //  request bodies, or URL query strings.
+  // ==========================================================================
+  "debug": {
+    "enabled": false,
+
+    // null = auto-named inside logDir
+    "logFile": null,
+    "logDir": "logs",
+
+    // "error" | "warn" | "info" | "debug"
+    // "debug" also records every network request, which can get very noisy.
+    "level": "info",
+
+    "console": true,        // also print to the terminal
+    "captureConsole": true, // console.log / warn / error from the page
+    "network": true,        // requests, responses, failures
+    "browserLogs": true,    // CSP, mixed content, deprecations
+
+    // The session recorder: clicks, typing, dropdowns, checkboxes, form
+    // submissions, shortcuts, scroll depth, navigation, dialogs, downloads.
+    "interactions": true,
+
+    // Record what was typed into each field, not only which field was used.
+    "captureValues": true,
+
+    // Password and credential-shaped fields stay masked even with capture on.
+    // Detected by input type, autocomplete, and names containing pass / token /
+    // secret / cvv / card / ssn / pin. Turning this OFF writes real passwords
+    // into a plain text file on disk - only do that deliberately.
+    "redactSecrets": true,
+
+    // Longest value written per field.
+    "maxValueLength": 200,
+
+    // Wait this long after the last keystroke before recording a field, so
+    // typing produces one entry instead of one per character.
+    "typeIdleMs": 900,
+
+    // Named keys (Enter, Escape, Tab, arrows, F-keys) and real shortcuts only.
+    // Ordinary characters are never logged from the keyboard.
+    "captureKeys": true,
+
+    // Scroll depth milestones at 25 / 50 / 75 / 100%.
+    "captureScroll": true,
+
+    // Structured sidecar: one JSON object per event, next to the .log
+    "jsonl": true,
+
+    // Browsable HTML timeline written when the session ends.
+    "htmlReport": true
+  },
+
+  // ==========================================================================
+  //  Privacy
+  // ==========================================================================
+  "privacy": {
+    // Disposable profile, deleted on exit. Turn off only for debugging.
+    "wipeOnExit": true,
+
+    // Where the temporary profiles live. null = the OS temp folder.
+    "profileRoot": null,
+
+    "disableSync": true,
+    "disableBackgroundNetworking": true,
+    "disablePrivacySandbox": true,
+    "blockThirdPartyCookies": true,
+    "doNotTrack": true,
+    "blockGeolocation": true,
+    "blockSensors": true,
+
+    // Safe Browsing sends URL hashes to Google. Off here for privacy; turn it
+    // on if phishing protection matters more to you.
+    "safeBrowsing": false
+  },
+
+  // Paths to unpacked extension folders (not .crx files).
+  "extensions": [],
+
+  // Extra raw Chromium flags, e.g. ["--force-dark-mode", "--mute-audio"].
+  "flags": [],
+
+  "verbose": false
+}
