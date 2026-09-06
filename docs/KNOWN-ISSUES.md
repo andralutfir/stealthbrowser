@@ -25,10 +25,22 @@ overrides, not the tool's page scripts.
 
 **What is in place.** New tabs are redirected off the built-in new tab page
 before anything is armed (`startup.newTabUrl`), and Brave's new tab dashboard is
-disabled through profile preferences. Both make it much rarer. Neither fixes it.
+disabled through profile preferences.
 
-**Workarounds.** Use Chrome or Chromium for sessions where you open many tabs,
-or open new tabs by middle-clicking a link rather than with `Ctrl+T`.
+**How well that holds.** Measured on Brave 152.1.94.121, six `Ctrl+T` presses per
+run:
+
+| `startup.newTabUrl` | Result |
+|---|---|
+| `"about:blank"` (default) | 6/6 survived, one renderer per tab, window still up |
+| `null` (mitigation removed) | died on the **second** tab, exit code `0x80000003` = `STATUS_BREAKPOINT` |
+
+So the redirect is the whole reason a session survives. The underlying crash is
+still there, untouched. Setting `newTabUrl` to `null` to get Brave's own new tab
+page back brings it straight back with it.
+
+**Workarounds.** Leave `startup.newTabUrl` set, or use Chrome or Chromium for
+sessions where you open many tabs.
 
 ---
 
