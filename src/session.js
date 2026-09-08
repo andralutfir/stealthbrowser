@@ -333,6 +333,7 @@ class Session extends EventEmitter {
           tag: this.tag,
           bandwidth: bandwidth.describe(this.bw),
           mode: cfg.statusPage.mode,
+          theme: cfg.statusPage.theme,
           checkIp: cfg.statusPage.checkIp,
           ipService: cfg.statusPage.ipService,
           ipFallback: cfg.statusPage.ipFallback,

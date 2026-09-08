@@ -101,7 +101,7 @@ class ControlPanel {
     const route = url.pathname.slice(prefix.length) || '/';
 
     if (route === '/' || route === '/index.html') return this._page(res);
-    if (route === '/app.js' || route === '/tailwind.css' || route === '/schema.js') {
+    if (['/app.js', '/tailwind.css', '/theme.css', '/schema.js'].includes(route)) {
       return this._static(res, route.slice(1));
     }
     if (route === '/api/events') return this._events(req, res);
@@ -136,6 +136,10 @@ class ControlPanel {
     // it needs it everywhere - stylesheet, scripts and the value the client
     // reads - not just at the first mention.
     html = html.split('__BASE__').join(`/${this.token}`);
+    // The theme is stamped in so the very first paint is already the right
+    // colour; a page that starts light and turns dark is worse than either.
+    const theme = (this.cfg.gui || {}).theme;
+    html = html.split('__THEME__').join(['light', 'dark', 'system'].includes(theme) ? theme : 'system');
     res.writeHead(200, {
       'content-type': TYPES['.html'],
       'cache-control': 'no-store',

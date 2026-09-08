@@ -1,0 +1,78 @@
+/* Hand-written rules the utility layer cannot express.
+ *
+ * Loaded next to app/tailwind.css by both the control panel and the status
+ * page. Everything here is either a browser feature with no utility class
+ * (scrollbars, selection, focus rings) or a rule that has to apply to the whole
+ * document at once (motion preferences, theme transition).
+ */
+
+/* ------------------------------------------------------------ theme colours
+ * One pair of variables so the scrollbar and the page never disagree about
+ * which theme is on. `.dark` is set on <html> by the page itself.
+ */
+:root {
+  --sb-track: #e7e7ea;
+  --sb-thumb: #c2c2c8;
+  --sb-thumb-hover: #a5a5ae;
+  --sb-select: rgb(99 102 241 / 0.22);
+}
+.dark {
+  --sb-track: #18181b;
+  --sb-thumb: #3f3f46;
+  --sb-thumb-hover: #52525b;
+  --sb-select: rgb(99 102 241 / 0.32);
+}
+
+/* Repainting every surface at once looks like a flash; easing it reads as a
+ * deliberate change. Only the colours move - layout must stay instant. */
+html.theme-ready,
+html.theme-ready body,
+html.theme-ready .themed {
+  transition: background-color .28s ease, border-color .28s ease, color .28s ease;
+}
+
+::selection { background: var(--sb-select); }
+
+/* ---------------------------------------------------------------- scrollbars
+ * Firefox takes two properties; Chromium wants the pseudo-elements. Both are
+ * set, so the panel and the status page look the same wherever they open.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) transparent;
+}
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* A scroll area that ends flush with its container gives no hint that there is
+ * more below, so the log pane fades its own top and bottom edge instead. */
+.fade-edges {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+}
+
+/* --------------------------------------------------------- motion preference
+ * Someone who has asked their system for less motion means it. Transitions
+ * that only tint a colour can stay; anything that moves is dropped.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Native form controls follow the theme rather than the OS default, which is
+ * what stops a light dropdown appearing over a dark page. */
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }

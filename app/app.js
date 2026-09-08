@@ -10,9 +10,35 @@
   const S = window.SCHEMA;
   const $ = (id) => document.getElementById(id);
 
-  const state = { config: {}, interfaces: [], browsers: [], configFile: '', running: 0, mode: 'advanced' };
+  const state = {
+    config: {}, interfaces: [], browsers: [], configFile: '', running: 0,
+    mode: 'advanced', theme: window.THEME || 'system',
+  };
   let section = 0;
   let dirty = false;
+
+  // ------------------------------------------------------------ style pieces
+
+  const BTN = 'themed rounded-lg border border-zinc-300 px-3 py-2 text-[13px] font-medium text-zinc-700 '
+    + 'transition hover:-translate-y-px hover:border-zinc-400 hover:bg-white active:translate-y-0 '
+    + 'disabled:opacity-40 disabled:hover:translate-y-0 '
+    + 'dark:border-zinc-700 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:bg-zinc-800';
+
+  const INPUT = 'themed w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-[13px] text-zinc-900 '
+    + 'outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-2 '
+    + 'focus:ring-indigo-400/30 dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-100 '
+    + 'dark:placeholder:text-zinc-500';
+
+  const CARD = 'themed divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white px-4 '
+    + 'dark:divide-zinc-800/80 dark:border-zinc-800 dark:bg-zinc-900/40';
+
+  const SEG_ON = 'bg-indigo-500 text-white';
+  const SEG_OFF = 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100';
+
+  // Written once here rather than eleven times in the markup.
+  document.querySelectorAll('[data-btn]').forEach((b) => {
+    b.className = BTN + (b.hasAttribute('data-right') ? ' ml-auto' : '');
+  });
 
   // ------------------------------------------------------------ config paths
 
@@ -38,10 +64,6 @@
     return n;
   };
 
-  const INPUT = 'w-full rounded-lg border border-zinc-700 bg-zinc-800/70 px-3 py-2 text-[13px] '
-    + 'text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-indigo-400 '
-    + 'focus:ring-1 focus:ring-indigo-400';
-
   function status(text) { $('status').textContent = text; }
 
   /**
@@ -60,9 +82,38 @@
     $('dialog-dot').className = 'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full '
       + (tone === 'ok' ? 'bg-emerald-400' : tone === 'bad' ? 'bg-rose-400' : 'bg-amber-400');
     show($('dialog'), true);
+    // Re-triggering the animation needs the class off for a frame.
+    const card = $('dialog-card');
+    card.classList.remove('animate-pop');
+    void card.offsetWidth;
+    card.classList.add('animate-pop');
   }
   $('dialog-ok').onclick = () => show($('dialog'), false);
   $('dialog').onclick = (e) => { if (e.target === $('dialog')) show($('dialog'), false); };
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') show($('dialog'), false); });
+
+  // ------------------------------------------------------------ theme
+
+  const media = matchMedia('(prefers-color-scheme: dark)');
+
+  function paintTheme() {
+    const pref = state.theme;
+    const dark = pref === 'dark' || (pref !== 'light' && media.matches);
+    document.documentElement.classList.toggle('dark', dark);
+    for (const b of $('theme-switch').children) {
+      const on = b.dataset.theme === pref;
+      b.className = 'px-2.5 py-2 transition-colors ' + (on ? SEG_ON : SEG_OFF);
+    }
+  }
+  for (const b of $('theme-switch').children) {
+    b.onclick = () => {
+      state.theme = b.dataset.theme;
+      set('gui.theme', state.theme);
+      paintTheme();
+    };
+  }
+  // Only meaningful while following the system, but harmless to keep attached.
+  media.addEventListener('change', () => { if (state.theme === 'system') paintTheme(); });
 
   // ------------------------------------------------------------ field widgets
 
@@ -92,15 +143,15 @@
     const k = field.kind;
 
     if (k === 'bool') {
-      const wrap = el('label', 'flex cursor-pointer items-start gap-3');
+      const wrap = el('label', 'group flex cursor-pointer items-start gap-3');
       const box = el('input');
       box.type = 'checkbox';
-      box.className = 'mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-indigo-500';
+      box.className = 'mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-indigo-500 transition';
       box.checked = value === undefined ? !!field.fallback : !!value;
       box.onchange = () => set(field.path, box.checked);
-      wrap.append(box, el('span', 'text-[13px] leading-snug text-zinc-200', field.label));
-      wrap.dataset.path = field.path;
-      return { node: wrap, full: true, input: box };
+      wrap.append(box, el('span', 'text-[13px] leading-snug text-zinc-700 transition-colors '
+        + 'group-hover:text-zinc-900 dark:text-zinc-200 dark:group-hover:text-white', field.label));
+      return { node: wrap, full: true };
     }
 
     if (k === 'select' || k === 'tri') {
@@ -126,7 +177,7 @@
         if (k === 'tri') set(field.path, sel.value === '' ? null : sel.value === 'true');
         else set(field.path, sel.value);
       };
-      return { node: sel, input: sel };
+      return { node: sel };
     }
 
     if (k === 'lines' || k === 'csv') {
@@ -139,7 +190,7 @@
         const parts = node.value.split(many ? '\n' : ',').map((s) => s.trim()).filter(Boolean);
         set(field.path, parts);
       };
-      return { node, input: node };
+      return { node };
     }
 
     if (k === 'int' || k === 'intOrNull' || k === 'dec') {
@@ -154,7 +205,7 @@
         const n = k === 'dec' ? parseFloat(node.value) : parseInt(node.value, 10);
         if (!Number.isNaN(n)) set(field.path, k === 'intOrNull' && n === 0 ? null : n);
       };
-      return { node, input: node };
+      return { node };
     }
 
     const node = el('input', INPUT);
@@ -165,34 +216,38 @@
       const t = node.value.trim();
       set(field.path, k === 'textOrNull' && t === '' ? null : node.value);
     };
-    return { node, input: node };
+    return { node };
   }
 
   function fieldRow(field) {
     const built = widget(field);
-    const row = el('div', 'py-2.5');
+    const row = el('div', 'py-3');
 
     if (built.full) {
       row.append(built.node);
     } else {
       const grid = el('div', 'grid grid-cols-1 items-center gap-2 sm:grid-cols-[210px_minmax(0,1fr)]');
-      grid.append(el('label', 'text-[13px] text-zinc-400', field.label));
+      grid.append(el('label', 'text-[13px] text-zinc-500 dark:text-zinc-400', field.label));
       const right = el('div', 'flex items-center gap-3');
       right.append(built.node);
-      if (field.hint) right.append(el('span', 'shrink-0 text-[12px] text-zinc-500', field.hint));
+      if (field.hint) right.append(el('span', 'shrink-0 text-[12px] text-zinc-400 dark:text-zinc-500', field.hint));
       grid.append(right);
       row.append(grid);
     }
-    if (field.help) row.append(el('p', 'mt-1.5 whitespace-pre-line text-[12px] leading-relaxed text-zinc-500', field.help));
+    if (field.help) {
+      row.append(el('p', 'mt-1.5 whitespace-pre-line text-[12px] leading-relaxed text-zinc-500 dark:text-zinc-500', field.help));
+    }
     return row;
   }
 
   function presetRow(help) {
-    const wrap = el('div', 'py-2');
+    const wrap = el('div', 'py-3');
     const bar = el('div', 'flex flex-wrap gap-2');
     const mk = (label, on) => {
-      const b = el('button', 'rounded-lg border border-zinc-700 px-3.5 py-2 text-[13px] font-medium '
-        + 'text-zinc-200 hover:border-indigo-400 hover:bg-indigo-500/10', label);
+      const b = el('button', 'themed rounded-lg border border-zinc-300 px-3.5 py-2 text-[13px] font-medium '
+        + 'text-zinc-700 transition hover:-translate-y-px hover:border-indigo-400 hover:bg-indigo-500/10 '
+        + 'hover:text-indigo-600 active:translate-y-0 dark:border-zinc-700 dark:text-zinc-200 '
+        + 'dark:hover:text-indigo-300', label);
       b.type = 'button';
       b.onclick = () => applyPreset(on);
       return b;
@@ -204,23 +259,23 @@
   }
 
   function buildPage(def) {
-    const page = el('div', 'mx-auto max-w-3xl');
-    page.append(el('h2', 'text-[19px] font-semibold tracking-tight', def.title));
-    if (def.blurb) page.append(el('p', 'mt-1 text-[13px] leading-relaxed text-zinc-400', def.blurb));
+    const page = el('div', 'mx-auto max-w-3xl animate-slidein');
+    page.append(el('h2', 'text-[20px] font-semibold tracking-tight', def.title));
+    if (def.blurb) page.append(el('p', 'mt-1 text-[13px] leading-relaxed text-zinc-500 dark:text-zinc-400', def.blurb));
 
     for (const group of def.groups) {
       const box = el('div', 'mt-6');
       if (group.title) {
-        box.append(el('h3', 'mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500', group.title));
+        box.append(el('h3', 'mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500', group.title));
       }
-      const card = el('div', 'divide-y divide-zinc-800/80 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4');
+      const card = el('div', CARD);
       if (group.presets) card.append(presetRow(group.help));
       for (const f of group.fields) card.append(fieldRow(f));
       box.append(card);
       if (group.help && !group.presets) {
         box.append(el('p', 'mt-2 whitespace-pre-line text-[12px] leading-relaxed text-zinc-500', group.help));
       }
-      if (group.warn) box.append(el('p', 'mt-2 text-[12px] leading-relaxed text-amber-400', group.warn));
+      if (group.warn) box.append(el('p', 'mt-2 text-[12px] leading-relaxed text-amber-500 dark:text-amber-400', group.warn));
       page.append(box);
     }
     return page;
@@ -269,21 +324,26 @@
     } else {
       show(nav, true, 'block');
       S.sections.forEach((def, i) => {
-        const b = el('button', 'mb-0.5 block w-full rounded-lg px-3 py-2 text-left text-[13px] '
-          + (i === section
-            ? 'bg-indigo-500/10 font-semibold text-indigo-300 ring-1 ring-indigo-400'
-            : 'text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100'), def.title);
+        const on = i === section;
+        const b = el('button', 'group mb-0.5 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left '
+          + 'text-[13px] transition-all ' + (on
+            ? 'bg-indigo-500/10 font-semibold text-indigo-600 dark:text-indigo-300'
+            : 'text-zinc-500 hover:translate-x-0.5 hover:bg-zinc-200/60 hover:text-zinc-900 '
+              + 'dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-100'));
         b.type = 'button';
+        b.append(el('span', 'h-4 w-0.5 shrink-0 rounded-full transition-colors '
+          + (on ? 'bg-indigo-500' : 'bg-transparent')));
+        b.append(el('span', 'truncate', def.title));
         b.onclick = () => { section = i; render(); };
         nav.append(b);
       });
       pages.append(buildPage(S.sections[section]));
     }
 
-    $('mode-simple').className = 'px-4 py-1.5 text-[13px] font-semibold '
-      + (state.mode === 'simple' ? 'bg-indigo-500 text-white' : 'text-zinc-400 hover:text-zinc-100');
-    $('mode-advanced').className = 'px-4 py-1.5 text-[13px] font-semibold '
-      + (state.mode === 'advanced' ? 'bg-indigo-500 text-white' : 'text-zinc-400 hover:text-zinc-100');
+    $('mode-simple').className = 'px-4 py-2 text-[13px] font-semibold transition-colors '
+      + (state.mode === 'simple' ? SEG_ON : SEG_OFF);
+    $('mode-advanced').className = 'px-4 py-2 text-[13px] font-semibold transition-colors '
+      + (state.mode === 'advanced' ? SEG_ON : SEG_OFF);
   }
 
   function setMode(mode) {
@@ -298,6 +358,7 @@
 
   const buffers = new Map();
   let active = 'Session';
+  let logOpen = false;
   const TAG = /^(?:\[[^\]]*\]\s*\+\s*[\d.]+s\s+)?#(\d+)(?:\s|$)/;
 
   function drawTabs() {
@@ -305,8 +366,10 @@
     tabs.textContent = '';
     show(tabs, buffers.size >= 2);
     for (const name of buffers.keys()) {
-      const b = el('button', 'rounded-md px-2.5 py-1 text-[12px] font-medium '
-        + (name === active ? 'bg-indigo-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-100'), name);
+      const on = name === active;
+      const b = el('button', 'rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors '
+        + (on ? 'bg-indigo-500 text-white'
+          : 'bg-zinc-200 text-zinc-600 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100'), name);
       b.type = 'button';
       b.onclick = () => { active = name; drawTabs(); drawLog(); };
       tabs.append(b);
@@ -330,9 +393,14 @@
     if (channel === active) drawLog();
   }
 
+  /** Slide rather than jump: max-height is the only height CSS can animate. */
   function showLog(open) {
-    show($('logpane'), open, 'block');
+    logOpen = open;
+    const pane = $('logpane');
+    pane.style.maxHeight = open ? pane.scrollHeight + 'px' : '0px';
+    pane.style.opacity = open ? '1' : '0';
     document.querySelector('[data-act="toggle-log"]').textContent = open ? 'Hide log' : 'Show log';
+    if (open) requestAnimationFrame(drawLog);
   }
 
   // ------------------------------------------------------------ server calls
@@ -354,8 +422,11 @@
     state.browsers = s.browsers || [];
     state.configFile = s.configFile || '';
     state.running = s.running || 0;
-    state.mode = (state.config.gui && state.config.gui.mode) === 'simple' ? 'simple' : 'advanced';
+    const gui = state.config.gui || {};
+    state.mode = gui.mode === 'simple' ? 'simple' : 'advanced';
+    state.theme = ['light', 'dark', 'system'].includes(gui.theme) ? gui.theme : 'system';
     dirty = false;
+    paintTheme();
     render();
     status(state.configFile ? 'Config: ' + state.configFile : 'No config file found — running on defaults.');
     document.querySelector('[data-act="stop"]').disabled = state.running === 0;
@@ -408,7 +479,7 @@
     async logs() { await api('/api/open', { what: 'logs' }); },
     async macros() { await api('/api/open', { what: 'macros' }); },
     clear() { buffers.clear(); active = 'Session'; drawTabs(); drawLog(); },
-    'toggle-log'() { showLog($('logpane').classList.contains('hidden')); },
+    'toggle-log'() { showLog(!logOpen); },
   };
 
   document.querySelectorAll('[data-act]').forEach((b) => {

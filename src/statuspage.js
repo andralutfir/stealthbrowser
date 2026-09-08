@@ -21,8 +21,10 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { PROJECT_ROOT } = require('./config');
+const { renderHtml } = require('./statusview');
 
 const CSS_FILE = path.join(PROJECT_ROOT, 'app', 'tailwind.css');
+const THEME_FILE = path.join(PROJECT_ROOT, 'app', 'theme.css');
 
 /*
  * The quality band picks its colour at runtime, so those class names never
@@ -50,13 +52,23 @@ function pageScript(DATA) {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '-' : s);
 
-  const CELL_K = 'w-[38%] py-2 pl-5 pr-3 align-top text-zinc-400';
+  const CELL_K = 'w-[38%] py-2 pl-5 pr-3 align-top text-zinc-500 dark:text-zinc-400';
   const CELL_V = 'py-2 pr-5 align-top tabular-nums break-words';
   const MONO = ' font-mono text-[13px]';
   const PILL = 'ml-1 inline-block rounded-full px-2 py-0.5 text-[12px] font-semibold ';
-  const P_OK = PILL + 'bg-emerald-500/15 text-emerald-400';
-  const P_BAD = PILL + 'bg-rose-500/15 text-rose-400';
-  const P_WARN = PILL + 'bg-amber-500/15 text-amber-400';
+  const P_OK = PILL + 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
+  const P_BAD = PILL + 'bg-rose-500/15 text-rose-600 dark:text-rose-400';
+  const P_WARN = PILL + 'bg-amber-500/15 text-amber-600 dark:text-amber-400';
+  const ROW = 'border-b border-zinc-200 last:border-0 transition-colors '
+    + 'hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/30';
+
+  // The band is chosen from the score at runtime, so both halves of each
+  // pair are spelled out here rather than assembled from parts.
+  const BAND = {
+    emerald: { text: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
+    amber: { text: 'text-amber-600 dark:text-amber-400', bar: 'bg-amber-500', dot: 'bg-amber-500' },
+    rose: { text: 'text-rose-600 dark:text-rose-400', bar: 'bg-rose-500', dot: 'bg-rose-500' },
+  };
 
   const gl = (() => {
     try {
@@ -99,7 +111,7 @@ function pageScript(DATA) {
   };
 
   const row = (k, v, mono) =>
-    `<tr class="border-b border-zinc-800 last:border-0"><td class="${CELL_K}">${k}</td>`
+    `<tr class="${ROW}"><td class="${CELL_K}">${k}</td>`
     + `<td class="${CELL_V}${mono ? MONO : ''}">${esc(v)}</td></tr>`;
 
   $('set').innerHTML = [
@@ -163,8 +175,8 @@ function pageScript(DATA) {
   })();
 
   const prow = (k, v, why) =>
-    `<tr class="border-b border-zinc-800 last:border-0">`
-    + `<td class="w-[34%] py-3 pl-5 pr-3 align-top text-zinc-400">${k}</td>`
+    `<tr class="${ROW}">`
+    + `<td class="w-[34%] py-3 pl-5 pr-3 align-top text-zinc-500 dark:text-zinc-400">${k}</td>`
     + `<td class="py-3 pr-5 align-top">${esc(v)}`
     + (why ? `<span class="mt-1 block text-[13px] text-zinc-500">${why}</span>` : '')
     + '</td></tr>';
@@ -195,30 +207,58 @@ function pageScript(DATA) {
     const title = $('verdict-title');
     const detail = $('verdict-detail');
     if (!issues.length) {
-      dot.className = 'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400';
+      dot.className = 'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ' + BAND.emerald.dot;
       title.textContent = 'Everything checks out';
       detail.textContent = 'The identity landed, nothing was carried over from a previous session, '
         + 'and the connection matches what sites will be told.';
     } else {
       const bad = issues.length > 2 || problems.length > 1;
-      dot.className = 'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ' + (bad ? 'bg-rose-400' : 'bg-amber-400');
+      dot.className = 'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ' + (bad ? BAND.rose.dot : BAND.amber.dot);
       title.textContent = issues.length + (issues.length === 1 ? ' thing to look at' : ' things to look at');
       detail.textContent = issues.join(' · ') + '. Switch to Advanced for the detail.';
     }
   }
 
-  const ON = 'bg-indigo-500 text-white';
-  const OFF = 'text-zinc-400 hover:text-zinc-100';
+  const SEG = 'px-3.5 py-2 text-[13px] font-semibold transition-colors ';
+  const ON = SEG + 'bg-indigo-500 text-white';
+  const OFF = SEG + 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100';
   const setMode = (m) => {
     const simple = m === 'simple';
     for (const node of document.querySelectorAll('.simple-only')) node.classList.toggle('hidden', !simple);
     for (const node of document.querySelectorAll('.adv-only')) node.classList.toggle('hidden', simple);
-    $('m-simple').className = 'px-4 py-2 text-[13px] font-semibold ' + (simple ? ON : OFF);
-    $('m-advanced').className = 'px-4 py-2 text-[13px] font-semibold ' + (simple ? OFF : ON);
+    $('m-simple').className = simple ? ON : OFF;
+    $('m-advanced').className = simple ? OFF : ON;
+    // Replay the entrance so the arriving view is not simply swapped in.
+    for (const node of document.querySelectorAll('.animate-rise')) {
+      if (node.offsetParent === null) continue;
+      node.classList.remove('animate-rise');
+      void node.offsetWidth;
+      node.classList.add('animate-rise');
+    }
   };
   $('m-simple').onclick = () => setMode('simple');
   $('m-advanced').onclick = () => setMode('advanced');
   setMode(DATA.mode === 'simple' ? 'simple' : 'advanced');
+
+  // The session this page describes is disposable, so there is nowhere to
+  // remember a choice: statusPage.theme is the setting, this is the override
+  // for the tab in front of you.
+  let theme = DATA.theme;
+  const media = matchMedia('(prefers-color-scheme: dark)');
+  const paintTheme = () => {
+    const dark = theme === 'dark' || (theme !== 'light' && media.matches);
+    document.documentElement.classList.toggle('dark', dark);
+    for (const b of $('theme-switch').children) {
+      b.className = 'px-2.5 py-2 transition-colors '
+        + (b.dataset.theme === theme ? 'bg-indigo-500 text-white'
+          : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100');
+    }
+  };
+  for (const b of $('theme-switch').children) {
+    b.onclick = () => { theme = b.dataset.theme; paintTheme(); };
+  }
+  media.addEventListener('change', () => { if (theme === 'system') paintTheme(); });
+  paintTheme();
 
   $('sess').innerHTML = [
     row('Browser', DATA.browser),
@@ -258,7 +298,7 @@ function pageScript(DATA) {
     .then((j) => {
       ipResolved = true;
       $('ipval').textContent = j.ip || j.query || j.origin || '-';
-      $('ipval').classList.remove('text-rose-400');
+      $('ipval').classList.remove('text-rose-500');
       const bits = [j.city, j.region, j.country || j.country_name].filter(Boolean);
       $('ipgeo').textContent = bits.length ? bits.join(', ') : 'not reported';
       $('ipnote').textContent = j.org || j.asn || 'via this session network path';
@@ -267,7 +307,7 @@ function pageScript(DATA) {
     })
     .catch((e) => {
       $('ipval').textContent = 'failed';
-      $('ipval').classList.add('text-rose-400');
+      $('ipval').classList.add('text-rose-500');
       $('ipnote').textContent = 'could not reach the IP service (' + e.message + ')';
       ipPlace = 'could not be checked';
       drawSimple();
@@ -298,7 +338,7 @@ function pageScript(DATA) {
     // the IP service failed, in which case this lookup fills those in rather
     // than leaving three dashes next to a working score.
     if (!ipResolved) {
-      if (q.query) { $('ipval').textContent = q.query; $('ipval').classList.remove('text-rose-400'); }
+      if (q.query) { $('ipval').textContent = q.query; $('ipval').classList.remove('text-rose-500'); }
       const bits = [q.city, q.country].filter(Boolean);
       if (bits.length) $('ipgeo').textContent = bits.join(', ');
       $('ipnote').textContent = q.isp || q.org || q.as || 'via this session network path';
@@ -332,18 +372,19 @@ function pageScript(DATA) {
     if (!ipPlace) { const b = [q.city, q.country].filter(Boolean); if (b.length) ipPlace = b.join(', '); }
     drawSimple();
 
+    const look = BAND[band.c];
     $('qscore').textContent = score + '%';
-    $('qscore').className = 'text-3xl font-semibold tabular-nums tracking-tight text-' + band.c + '-400';
-    $('qlabel').className = PILL + 'bg-' + band.c + '-500/15 text-' + band.c + '-400 align-middle';
+    $('qscore').className = 'text-3xl font-semibold tabular-nums tracking-tight ' + look.text;
+    $('qlabel').className = PILL + 'align-middle bg-' + band.c + '-500/15 ' + look.text;
     $('qlabel').textContent = band.t;
-    $('qbar').className = 'h-full rounded-full bg-' + band.c + '-400 transition-all duration-500';
+    $('qbar').className = 'h-full rounded-full transition-all duration-700 ease-out ' + look.bar;
     $('qbar').style.width = score + '%';
 
     $('qrows').innerHTML = checks.map((c) => {
       const pill = c.cost > 0
         ? `<span class="${c.cost >= 30 ? P_BAD : P_WARN}">&minus;${c.cost}</span>`
         : c.good ? `<span class="${P_OK}">ok</span>` : '';
-      return '<tr class="border-b border-zinc-800 last:border-0">'
+      return `<tr class="${ROW}">`
         + `<td class="${CELL_K}">${c.label}</td>`
         + `<td class="${CELL_V}">${esc(c.value)}</td>`
         + `<td class="w-24 py-2 pr-5 text-right align-top">${pill}</td></tr>`;
@@ -354,106 +395,11 @@ function pageScript(DATA) {
       + 'Source: ' + DATA.qualityService.replace(/^https?:\/\//, '').split('/')[0]);
   }).catch((e) => {
     $('qscore').textContent = 'n/a';
-    $('qscore').className = 'text-3xl font-semibold tracking-tight text-zinc-500';
+    $('qscore').className = 'text-3xl font-semibold tracking-tight text-zinc-400 dark:text-zinc-500';
     qnote('Quality lookup unavailable (' + e.message + '). No score is shown rather than a guessed one.');
     quality = null;
     drawSimple();
   });
-}
-
-function renderHtml(data, base) {
-  const json = JSON.stringify(data).replace(/</g, '\\u003c');
-  const card = 'rounded-xl border border-zinc-800 bg-zinc-900/40';
-  const h2 = 'px-5 pt-4 text-[12px] font-semibold uppercase tracking-wider text-zinc-500';
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Session ${data.tag || 'stealthbrowser'}</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%236366f1'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23fff'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="${base}tailwind.css">
-</head>
-<body class="bg-zinc-950 text-zinc-100 antialiased">
-<div class="mx-auto max-w-5xl px-6 py-8">
-
-  <div class="mb-6 flex flex-wrap items-start gap-4">
-    <div class="min-w-0">
-      <h1 class="text-2xl font-semibold tracking-tight">New session ready${data.tag ? ' &mdash; ' + data.tag : ''}</h1>
-      <p class="mt-1 text-[15px] text-zinc-400">Disposable profile. The identity below applies to this session only
-        and changes the next time the browser opens.</p>
-    </div>
-    <div class="ml-auto flex shrink-0 overflow-hidden rounded-lg border border-zinc-700">
-      <button type="button" id="m-simple" class="px-4 py-2 text-[13px] font-semibold text-zinc-400 hover:text-zinc-100">Simple</button>
-      <button type="button" id="m-advanced" class="px-4 py-2 text-[13px] font-semibold text-zinc-400 hover:text-zinc-100">Advanced</button>
-    </div>
-  </div>
-
-  <div class="simple-only mb-4 flex items-start gap-3 ${card} px-5 py-4">
-    <span id="verdict-dot" class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-zinc-600"></span>
-    <div>
-      <b id="verdict-title" class="block text-[17px] font-semibold">Checking&hellip;</b>
-      <span id="verdict-detail" class="text-[14px] text-zinc-400">Reading what this session actually reports.</span>
-    </div>
-  </div>
-
-  <div class="mb-4 ${card} px-5 py-4">
-    <div class="flex flex-wrap items-baseline gap-x-8 gap-y-4">
-      <div>
-        <span class="mb-1 block text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Current public IP</span>
-        <b id="ipval" class="text-3xl font-semibold tabular-nums tracking-tight">loading&hellip;</b>
-      </div>
-      <div>
-        <span class="mb-1 block text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Location</span>
-        <span id="ipgeo" class="text-[15px] text-zinc-400">&mdash;</span>
-      </div>
-      <div>
-        <span class="mb-1 block text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Network</span>
-        <span id="ipnote" class="text-[15px] text-zinc-400">&mdash;</span>
-      </div>
-${data.checkQuality ? `      <div class="ml-auto text-right">
-        <span class="mb-1 block text-[12px] font-semibold uppercase tracking-wider text-zinc-500">IP quality</span>
-        <b id="qscore" class="text-3xl font-semibold tabular-nums tracking-tight">checking&hellip;</b>
-        <span id="qlabel"></span>
-      </div>` : ''}
-    </div>
-${data.checkQuality ? `    <div class="mt-4 border-t border-zinc-800 pt-3">
-      <div class="mb-2 h-2 overflow-hidden rounded-full bg-zinc-800">
-        <div id="qbar" class="h-full w-0 rounded-full bg-zinc-600"></div>
-      </div>
-      <table class="w-full text-[15px]"><tbody id="qrows"></tbody></table>
-      <p id="qnote" class="mt-2 text-[13px] leading-relaxed text-zinc-500">Asking the lookup service what this address looks like&hellip;</p>
-    </div>` : ''}
-  </div>
-
-  <div class="simple-only ${card} pb-3">
-    <h2 class="${h2}">In plain words</h2>
-    <table class="w-full px-5 text-[15px]"><tbody id="plain"></tbody></table>
-  </div>
-
-  <div class="adv-only ${card} pb-3">
-    <h2 class="${h2}">Session</h2>
-    <table class="w-full text-[15px]"><tbody id="sess"></tbody></table>
-  </div>
-
-  <div class="adv-only mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-    <div class="${card} pb-3">
-      <h2 class="${h2}">Identity applied</h2>
-      <table class="w-full text-[15px]"><tbody id="set"></tbody></table>
-    </div>
-    <div class="${card} pb-3">
-      <h2 class="${h2}">What websites actually see</h2>
-      <table class="w-full text-[15px]"><tbody id="seen"></tbody></table>
-    </div>
-  </div>
-
-  <p class="adv-only mt-4 text-[14px] text-zinc-500">
-    Test further:
-    <a class="ml-3 text-indigo-400 hover:underline" href="https://abrahamjuliot.github.io/creepjs/" target="_blank" rel="noreferrer">CreepJS</a>
-    <a class="ml-3 text-indigo-400 hover:underline" href="https://browserleaks.com/webrtc" target="_blank" rel="noreferrer">WebRTC leak</a>
-    <a class="ml-3 text-indigo-400 hover:underline" href="https://www.dnsleaktest.com/" target="_blank" rel="noreferrer">DNS leak</a>
-  </p>
-</div>
-<script>(${pageScript.toString()})(${json});</script>
-</body></html>`;
 }
 
 class StatusPage {
@@ -465,11 +411,13 @@ class StatusPage {
     // A random path keeps the page from being trivially reachable by anything
     // else that happens to be poking at localhost.
     this.token = crypto.randomBytes(9).toString('hex');
-    const html = renderHtml(this._data(), `/${this.token}/`);
+    const html = renderHtml(this._data(), `/${this.token}/`, pageScript.toString());
     this.server = http.createServer((req, res) => {
       const url = (req.url || '').split('?')[0];
-      if (url === `/${this.token}/tailwind.css`) {
-        fs.readFile(CSS_FILE, (err, buf) => {
+      const asset = url === `/${this.token}/tailwind.css` ? CSS_FILE
+        : url === `/${this.token}/theme.css` ? THEME_FILE : null;
+      if (asset) {
+        fs.readFile(asset, (err, buf) => {
           if (err) {
             res.writeHead(404, { 'content-type': 'text/plain' });
             res.end('app/tailwind.css is missing - run: node tools/build-css.js');
@@ -508,6 +456,7 @@ class StatusPage {
       profile: o.profile.dir,
       time: new Date().toLocaleString('en-GB'),
       mode: o.mode === 'simple' ? 'simple' : 'advanced',
+      theme: ['light', 'dark', 'system'].includes(o.theme) ? o.theme : 'system',
       checkIp: o.checkIp !== false,
       ipService: o.ipService || 'https://ipinfo.io/json',
       ipFallback: o.ipFallback || 'https://api.ipify.org?format=json',

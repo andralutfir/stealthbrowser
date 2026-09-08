@@ -105,6 +105,10 @@
     // one click apart on the page itself, this only picks the starting one.
     "mode": "advanced",
 
+    // "system" follows the OS light/dark setting; "light" and "dark" pin it.
+    // Either way the page has its own switch in the top-right corner.
+    "theme": "system",
+
     // Looked up from inside the browser, over this session's own connection -
     // so the address already accounts for interface binding and any proxy.
     // Set false if you want no outbound request at all when the browser opens.
@@ -133,7 +137,10 @@
   //  "advanced" -> the full settings surface, one section per config area
   // ==========================================================================
   "gui": {
-    "mode": "advanced"
+    "mode": "advanced",
+
+    // "system" follows the OS light/dark setting; "light" and "dark" pin it.
+    "theme": "system"
   },
 
   // ==========================================================================

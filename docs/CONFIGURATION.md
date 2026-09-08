@@ -527,6 +527,10 @@ Both write the same `config.json`, and the switch is in the top-right corner of
 the window. They are two views onto one set of values held in memory, so an edit
 in either is visible in the other at once and neither can overwrite it.
 
+`gui.theme` and `statusPage.theme` take `system` (the default, following the OS),
+`light` or `dark`. Each page also carries its own switch, so the config value is
+the starting point rather than a lock.
+
 The status page has the same split, set by `statusPage.mode`, and the same
 switch in its top-right corner:
 

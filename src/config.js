@@ -97,6 +97,8 @@ const DEFAULTS = {
     // what needs attention; "advanced" is the full side-by-side check. Both are
     // one click apart on the page itself, this only picks the starting one.
     mode: 'advanced',
+    // "system" follows the OS light/dark setting; "light" and "dark" pin it.
+    theme: 'system',
     // Looked up from inside the browser, so it travels this session's own path.
     checkIp: true,
     // Must return JSON and allow CORS. The default also reports city/country/ISP.
@@ -118,6 +120,8 @@ const DEFAULTS = {
   // "simple" opens the one-page view, "advanced" the full settings surface.
   gui: {
     mode: 'advanced',
+    // "system" follows the OS setting; "light" and "dark" pin it.
+    theme: 'system',
   },
 
   // Bandwidth saving. "balanced" is the one meant for daily use: it removes

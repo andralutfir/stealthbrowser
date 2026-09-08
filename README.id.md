@@ -54,6 +54,10 @@ Keduanya adalah jendela ke setelan yang sama di memori, jadi perubahan di satu
 tampilan langsung terlihat di tampilan lainnya dan tidak ada yang bisa saling
 menimpa.
 
+Temanya mengikuti setelan terang/gelap sistem, dan tombol di pojok bisa
+menguncinya ke salah satu. Pilihannya tersimpan sebagai `gui.theme` di config,
+jadi tidak hilang setelah ditutup.
+
 **Script.** Untuk buka cepat dan bikin shortcut:
 
 | Windows | Linux / macOS | Fungsinya |
@@ -171,7 +175,8 @@ panel. Referensi lengkapnya di
 saat ini, skor kualitasnya, identitas yang dipakai, dan — diukur langsung di
 halaman itu — apa yang *sebenarnya* dilihat website, tiap barisnya ditandai
 `match` atau `MISMATCH`. Override yang gagal langsung kelihatan. Ada tombol
-Simple / Advanced yang sama seperti di panel.
+Simple / Advanced yang sama seperti di panel, plus tombol terang/gelap sendiri
+(`statusPage.theme`).
 
 **Kualitas IP.** Alamatnya dinilai dari 100: terdeteksi proxy atau VPN dipotong
 50, range datacenter 35, zona waktu browser yang tidak cocok dengan IP 15,
@@ -291,6 +296,7 @@ spoofing.
 | `src/cdp.js`, `src/ws.js` | Klien DevTools Protocol, WebSocket tulisan tangan |
 | `src/app.js` | Server panel kontrol beserta API-nya |
 | `app/` | Halaman panel: markup, logika klien, skema field, stylesheet |
+| `src/statusview.js` | Markup status page, dipisah dari yang diukurnya |
 | `tools/build-css.js` | Meng-compile `app/tailwind.css` dari class yang dipakai |
 
 ---
@@ -320,7 +326,12 @@ node tools/build-css.js
 Perintah itu mengumpulkan semua class yang mungkin dihasilkan kedua halaman,
 meng-compile-nya dengan compiler Tailwind sendiri di dalam browser yang sudah
 dikenali tools ini, lalu menulis kembali hanya utility yang benar-benar dipakai
-— saat ini sekitar 14 KB.
+— saat ini sekitar 23 KB, sudah termasuk kedua tema.
+
+Di sebelahnya ada `app/theme.css` yang ditulis tangan: scrollbar, warna seleksi,
+gradasi di tepi panel log, dan aturan `prefers-reduced-motion` yang mematikan
+semua animasi untuk orang yang memang meminta lebih sedikit gerakan ke
+sistemnya.
 
 ---
 

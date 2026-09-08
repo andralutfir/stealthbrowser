@@ -53,6 +53,10 @@ It opens in one of two views, switched from the top-right corner:
 Both views are windows onto the same settings in memory, so an edit in one is
 visible in the other immediately and neither can overwrite the other.
 
+It follows your system's light or dark setting, and the switch in the corner
+pins it either way. The choice is `gui.theme` in the config, so it survives a
+restart.
+
 **The scripts.** For quick launches and shortcuts:
 
 | Windows | Linux / macOS | What it does |
@@ -164,7 +168,7 @@ full reference is in **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
 public IP, its quality score, the identity in use, and — measured live in that
 page — what websites *actually* see, each row tagged `match` or `MISMATCH`. A
 failed override is visible immediately. It has the same Simple / Advanced switch
-as the panel.
+as the panel, and its own light / dark switch (`statusPage.theme`).
 
 **IP quality.** The address is scored out of 100: a flagged proxy or VPN costs
 50, a datacenter range 35, a browser timezone that disagrees with the IP 15, a
@@ -281,7 +285,8 @@ page never races the spoofing setup.
 | `src/logger.js` | File + console logger |
 | `src/cdp.js`, `src/ws.js` | DevTools Protocol client, hand-written WebSocket |
 | `src/app.js` | The control panel server and its API |
-| `app/` | The panel page: markup, client logic, field schema, stylesheet |
+| `app/` | The panel page: markup, client logic, field schema, stylesheets |
+| `src/statusview.js` | The status page markup, kept apart from what it measures |
 | `tools/build-css.js` | Compiles `app/tailwind.css` from the classes in use |
 
 ---
@@ -308,7 +313,13 @@ node tools/build-css.js
 
 That collects every class the two pages can produce, compiles them with
 Tailwind's own compiler inside the browser this project already knows how to
-find, and writes back only the utilities actually used — currently about 14 KB.
+find, and writes back only the utilities actually used — currently about 23 KB
+including both themes.
+
+`app/theme.css` sits next to it and is written by hand: the scrollbars, the
+selection colour, the fade at the edges of the log pane, and the
+`prefers-reduced-motion` rule that drops every animation for anyone who has
+asked their system for less movement.
 
 ---
 
