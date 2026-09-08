@@ -19,7 +19,10 @@ if not exist "%CSC%" (
 set "REFS=/reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll"
 
 echo Building StealthBrowser.exe ...
-"%CSC%" /nologo /target:winexe /optimize+ /out:StealthBrowser.exe %REFS% "gui\StealthBrowser.cs"
+rem Every .cs in gui\, not a hand-kept list: the window was one file once,
+rem and a build that names its sources individually silently stops seeing
+rem the ones added later. csc expands the pattern itself.
+"%CSC%" /nologo /target:winexe /optimize+ /out:StealthBrowser.exe %REFS% "gui\*.cs"
 if errorlevel 1 (
   echo.
   echo   Build failed.
