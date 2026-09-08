@@ -31,9 +31,17 @@ tahu apa yang kurang.
 
 ### Dua cara menjalankannya
 
-**Aplikasi — Windows.** Klik dua kali `StealthBrowser.exe`. Aplikasi ini membaca
-dan menulis `config.json` yang sama dengan CLI, dan menampilkan output launcher
-langsung di jendelanya, jadi jalannya sesi bisa kamu lihat.
+**Panel kontrol.** Satu perintah, tanpa executable yang harus di-build:
+
+```bash
+node src/index.js --app
+```
+
+Perintah itu menjalankan server lokal kecil lalu membukanya sebagai jendela
+aplikasi — jendela browser tanpa tab dan tanpa address bar, memakai profil
+sekali pakai sendiri. Semuanya Node dan HTML biasa, jadi jalan sama persis di
+Windows, Linux, dan macOS. Panel ini membaca dan menulis `config.json` yang sama
+dengan CLI, dan menampilkan output launcher langsung di jendelanya.
 
 Ada dua tampilan, tombol pindahnya di pojok kanan atas:
 
@@ -42,29 +50,24 @@ Ada dua tampilan, tombol pindahnya di pojok kanan atas:
 | **Simple** | Satu halaman. Browser apa, mau buka halaman apa, berapa jendela, koneksi lewat mana, hemat data, dan dua preset identitas. Cukup untuk menjalankan sesi tanpa perlu baca apa pun. |
 | **Advanced** | Sebelas bagian, satu per area config — semua opsi di `config.json` punya kontrolnya. |
 
-Keduanya menulis file yang sama, dan hanya tampilan yang sedang terlihat yang
-dibaca saat menyimpan — jadi perubahan di satu tampilan tidak pernah tertimpa
-salinan basi dari tampilan lainnya.
+Keduanya adalah jendela ke setelan yang sama di memori, jadi perubahan di satu
+tampilan langsung terlihat di tampilan lainnya dan tidak ada yang bisa saling
+menimpa.
 
-Kalau .exe-nya belum ada, build sekali dengan `build-exe.cmd`. Itu memakai
-compiler C# yang sudah bawaan Windows — tanpa SDK, tanpa toolchain, tanpa
-package, sejalan dengan sisa proyek ini. Node.js tetap dibutuhkan untuk
-menjalankan sesinya.
-
-**Script — semua platform.** Untuk buka cepat dan bikin shortcut:
+**Script.** Untuk buka cepat dan bikin shortcut:
 
 | Windows | Linux / macOS | Fungsinya |
 |---|---|---|
+| `stealth-app.cmd` | `./stealth-app.sh` | Buka panel kontrol |
 | `stealth.cmd` | `./stealth.sh` | Buka satu browser |
 | `stealth-multi.cmd` | `./stealth-multi.sh` | Tanya mau berapa browser, lalu buka semuanya |
 | `stealth-debug.cmd` | `./stealth-debug.sh` | Buka satu browser dan rekam sesinya ke `logs/` |
-| `build-exe.cmd` | — | Build ulang `StealthBrowser.exe` |
 
 Dua-duanya sama-sama menjalankan `src/index.js`, jadi apa pun yang kamu atur di
 satu tempat berlaku di tempat lain. Detail khusus Linux dan macOS ada di
 **[docs/LINUX.md](docs/LINUX.md)** (bahasa Inggris).
 
-Satu hal yang perlu diketahui: **aplikasi menulis `config.json` sebagai JSON
+Satu hal yang perlu diketahui: **panel menulis `config.json` sebagai JSON
 polos**, jadi menyimpan lewat aplikasi menghapus komentar penjelasnya. Salinan
 yang berkomentar selalu ada di `config.example.json`, dan `--init-config`
 mengembalikannya. File sebelumnya disimpan sebagai `config.json.bak` setiap kali
@@ -81,7 +84,7 @@ node src/index.js --install-browser chrome Beta
 ```
 
 Di komputer yang sama sekali tidak punya browser, peluncuran pertama akan
-mengunduh satu sendiri. Di aplikasi ada tombol **Get browser** untuk hal yang
+mengunduh satu sendiri. Di panel ada tombol **Get browser** untuk hal yang
 sama.
 
 | | |
@@ -150,7 +153,7 @@ Untuk halaman seperti itu, jalankan tanpa semuanya:
 node src/index.js --no-spoof --no-debug --url https://example.com/signup
 ```
 
-Di aplikasi: **Identity → Presets → No spoof**, dan **Full stealth** untuk
+Di panel: **Identity → Presets → No spoof**, dan **Full stealth** untuk
 mengembalikan semuanya. Kamu tetap dapat profil sekali pakai, cookie jar kosong,
 tanpa riwayat, semuanya dihapus saat ditutup, plus binding jaringan. Yang hilang
 cuma bagian yang berbohong soal identitas browser — dan itu memang yang
@@ -161,14 +164,14 @@ dipermasalahkan bot check-nya.
 ## Apa saja yang bisa
 
 Masing-masing berupa satu key di config, satu flag CLI, dan satu kontrol di
-aplikasi. Referensi lengkapnya di
+panel. Referensi lengkapnya di
 **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** (bahasa Inggris).
 
 **Tab status.** Tab pertama setiap sesi adalah halaman lokal berisi IP publik
 saat ini, skor kualitasnya, identitas yang dipakai, dan — diukur langsung di
 halaman itu — apa yang *sebenarnya* dilihat website, tiap barisnya ditandai
 `match` atau `MISMATCH`. Override yang gagal langsung kelihatan. Ada tombol
-Simple / Advanced yang sama seperti di aplikasi.
+Simple / Advanced yang sama seperti di panel.
 
 **Kualitas IP.** Alamatnya dinilai dari 100: terdeteksi proxy atau VPN dipotong
 50, range datacenter 35, zona waktu browser yang tidak cocok dengan IP 15,
@@ -212,8 +215,8 @@ Semua yang berhasil direproduksi, lengkap dengan yang sudah dipahami dan yang
 belum, ada di satu halaman: **[docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md)**.
 
 Ringkasnya: Brave bisa crash saat `Ctrl+T` kalau spoofing penuh sedang aktif; bot
-check bisa menolak selesai (pakai **No spoof**); aplikasi desktop hanya untuk
-Windows; Brave tidak bisa diunduh otomatis di Linux.
+check bisa menolak selesai (pakai **No spoof**); Brave tidak bisa diunduh
+otomatis di Linux.
 
 ---
 
@@ -286,7 +289,9 @@ spoofing.
 | `src/layout.js` | Deteksi monitor dan penyusunan jendela |
 | `src/logger.js` | Logger file + konsol |
 | `src/cdp.js`, `src/ws.js` | Klien DevTools Protocol, WebSocket tulisan tangan |
-| `gui/` | Aplikasi Windows (`build-exe.cmd`) |
+| `src/app.js` | Server panel kontrol beserta API-nya |
+| `app/` | Halaman panel: markup, logika klien, skema field, stylesheet |
+| `tools/build-css.js` | Meng-compile `app/tailwind.css` dari class yang dipakai |
 
 ---
 
@@ -300,6 +305,22 @@ spoofing.
 | [config.example.json](config.example.json) | Referensi yang sama, langsung di dalam config |
 
 Dokumen di folder `docs/` ditulis dalam bahasa Inggris.
+
+### Tampilan
+
+Panel dan status page ditata dengan Tailwind. `app/tailwind.css` ikut di-commit,
+jadi menjalankan tools ini tetap tanpa npm dan tanpa build step, dan status page
+tetap terbuka di dalam sesi sekali pakai tanpa script pihak ketiga dan tanpa
+request keluar. Kalau ada nama class yang berubah, bangun ulang:
+
+```bash
+node tools/build-css.js
+```
+
+Perintah itu mengumpulkan semua class yang mungkin dihasilkan kedua halaman,
+meng-compile-nya dengan compiler Tailwind sendiri di dalam browser yang sudah
+dikenali tools ini, lalu menulis kembali hanya utility yang benar-benar dipakai
+— saat ini sekitar 14 KB.
 
 ---
 

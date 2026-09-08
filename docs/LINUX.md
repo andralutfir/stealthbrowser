@@ -1,8 +1,8 @@
 # Running on Linux and macOS
 
 The launcher is plain Node.js with no dependencies, so it runs anywhere Node
-does. Only the desktop app is Windows-only; everything it does is available from
-the command line and the shell scripts.
+does - control panel included. Nothing here is compiled and nothing is
+Windows-only any more.
 
 ---
 
@@ -41,11 +41,16 @@ chmod +x *.sh
 Then:
 
 ```bash
+./stealth-app.sh                  # the control panel: settings and launcher
 ./stealth.sh                      # one browser
 ./stealth.sh https://duckduckgo.com
 ./stealth-multi.sh 3              # three side by side, each its own identity
 ./stealth-debug.sh                # one browser, session recorded to logs/
 ```
+
+The control panel is the same on every platform now: `node src/index.js --app`
+serves a local page and opens it as an app window through the browser it just
+detected. Nothing is compiled and nothing is installed.
 
 The `.sh` scripts are thin wrappers around `node src/index.js`; every CLI option
 works through them.
@@ -153,11 +158,8 @@ lost.
 
 ## What is not available
 
-- **`StealthBrowser.exe`** — the settings app is WinForms. Use `config.json`
-  plus the CLI; every option in the app maps one-to-one onto a config key, and
-  `config.example.json` documents all of them.
-- **`build-exe.cmd`** — Windows only, and only needed for the app.
-- **Fetching Brave** — see above.
+- **Fetching Brave** — see above. Everything else, including the control panel,
+  works the same as on Windows.
 
 ---
 

@@ -125,6 +125,34 @@ async function launchAll(cfg) {
   }
 }
 
+/**
+ * The control panel: a local server plus a browser window opened with --app=.
+ * Node holds the process open until the window is closed or Ctrl+C is pressed,
+ * so the panel behaves like an application rather than a command that returns.
+ */
+async function openPanel(cfg) {
+  const { ControlPanel } = require('./app');
+  const panel = new ControlPanel(cfg);
+  const url = await panel.listen();
+  log('');
+  log('  Stealth Browser control panel');
+  log(`  ${url}`);
+  log('');
+
+  const win = panel.openWindow(log);
+  const shutdown = () => { panel.close(); process.exit(0); };
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, shutdown);
+  if (win) {
+    win.on('exit', () => {
+      log('  Panel window closed.');
+      shutdown();
+    });
+  } else {
+    log('  Leave this window open while you use the panel. Ctrl+C to stop.');
+  }
+  return null;   // the panel owns the process lifecycle from here
+}
+
 function runCheck(cfg) {
   const rows = [];
   const ok = (label, detail) => rows.push(`  [ok]   ${label}${detail ? ' - ' + detail : ''}`);
@@ -298,6 +326,8 @@ async function main() {
     console.error(`  WARNING      : no config.json found (looked for ${cfg.configMissing}).`);
     console.error('                 Running with defaults. Create one with: node src/index.js --init-config');
   }
+
+  if (args.app) return openPanel(cfg);
 
   if (args.check) return runCheck(cfg);
 

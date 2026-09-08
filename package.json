@@ -8,6 +8,9 @@
   },
   "scripts": {
     "start": "node src/index.js",
+    "app": "node src/index.js --app",
+    "check": "node src/index.js --check",
+    "build:css": "node tools/build-css.js",
     "test": "node src/index.js --check"
   },
   "engines": {

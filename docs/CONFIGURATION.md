@@ -513,9 +513,10 @@ node src/index.js --help
 
 ---
 
-## Two views in the app
+## Two views in the panel
 
-`gui.mode` decides which view `StealthBrowser.exe` opens in:
+`gui.mode` decides which view the control panel (`node src/index.js --app`)
+opens in:
 
 | | |
 |---|---|
@@ -523,8 +524,8 @@ node src/index.js --help
 | `"advanced"` | The full surface — eleven sections, one per config area, every key in this document. |
 
 Both write the same `config.json`, and the switch is in the top-right corner of
-the window. Only the view you can see is read back when you save, so changing a
-value in one view is never quietly undone by a stale copy in the other.
+the window. They are two views onto one set of values held in memory, so an edit
+in either is visible in the other at once and neither can overwrite it.
 
 The status page has the same split, set by `statusPage.mode`, and the same
 switch in its top-right corner:

@@ -128,7 +128,7 @@
   },
 
   // ==========================================================================
-  //  The app (StealthBrowser.exe) only. The CLI ignores this.
+  //  The control panel (node src/index.js --app) only. The CLI ignores this.
   //  "simple"   -> one page: browser, pages, windows, connection, data saving
   //  "advanced" -> the full settings surface, one section per config area
   // ==========================================================================

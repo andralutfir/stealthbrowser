@@ -114,7 +114,7 @@ const DEFAULTS = {
     qualityService: 'http://ip-api.com/json/?fields=status,message,country,countryCode,city,timezone,isp,org,as,reverse,mobile,proxy,hosting,query',
   },
 
-  // Read and written by StealthBrowser.exe only; the CLI ignores it.
+  // Read and written by the control panel (node src/index.js --app) only.
   // "simple" opens the one-page view, "advanced" the full settings surface.
   gui: {
     mode: 'advanced',
@@ -335,6 +335,7 @@ Commands:
   --print-config         Print the effective config and which file was read
   --dump-config          Same, as raw JSON (used by the GUI)
   --init-config          Rewrite config.json from config.example.json
+  --app                  Open the control panel window (settings + launcher)
   --check                Run a setup health check
   --help                 Show this help
 `.trim();
@@ -384,6 +385,7 @@ function parseArgs(argv) {
       case '--dump-config': out.dumpConfig = true; break;
       case '--init-config': out.initConfig = true; break;
       case '--check': out.check = true; break;
+      case '--app': case '--gui': case '--panel': out.app = true; break;
       case '--help': case '-h': out.help = true; break;
       default:
         if (a.startsWith('--')) throw new Error(`Unknown option: ${a}\n\n${HELP}`);

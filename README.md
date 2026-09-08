@@ -31,9 +31,17 @@ you what is missing.
 
 ### Two ways to launch it
 
-**The app — Windows.** Double-click `StealthBrowser.exe`. It reads and writes
-the same `config.json` as the CLI, and streams the launcher output into the
-window so you can watch a session run.
+**The control panel.** One command, no executable to build:
+
+```bash
+node src/index.js --app
+```
+
+It starts a small local server and opens it as an app window — a browser window
+with no tabs and no omnibox, on its own throwaway profile. Everything is Node
+and plain HTML, so it works the same on Windows, Linux and macOS. It reads and
+writes the same `config.json` as the CLI and streams the launcher output into
+the window so you can watch a session run.
 
 It opens in one of two views, switched from the top-right corner:
 
@@ -42,29 +50,24 @@ It opens in one of two views, switched from the top-right corner:
 | **Simple** | One page. The browser, the pages to open, how many windows, the connection, data saving, and two identity presets. Enough to run a session without reading anything. |
 | **Advanced** | Eleven sections, one per config area — every option in `config.json` has a control. |
 
-Both write the same file, and only the view you can see is read back when you
-save, so a change in one is never undone by a stale copy in the other.
+Both views are windows onto the same settings in memory, so an edit in one is
+visible in the other immediately and neither can overwrite the other.
 
-If the .exe is not there yet, build it once with `build-exe.cmd`. That compiles
-it with the C# compiler already built into Windows — no SDK, no toolchain, no
-packages, in line with the rest of the project. Node.js is still required to run
-a session.
-
-**The scripts — every platform.** For quick launches and shortcuts:
+**The scripts.** For quick launches and shortcuts:
 
 | Windows | Linux / macOS | What it does |
 |---|---|---|
+| `stealth-app.cmd` | `./stealth-app.sh` | Open the control panel |
 | `stealth.cmd` | `./stealth.sh` | Open one browser |
 | `stealth-multi.cmd` | `./stealth-multi.sh` | Ask how many browsers, then open them all |
 | `stealth-debug.cmd` | `./stealth-debug.sh` | Open one browser and record the session to `logs/` |
-| `build-exe.cmd` | — | Rebuild `StealthBrowser.exe` |
 
 Both routes end up running the same `src/index.js`, so anything you set in one
 applies to the other. See **[docs/LINUX.md](docs/LINUX.md)** for the Linux and
 macOS specifics.
 
-One difference worth knowing: **the app writes `config.json` as plain JSON**, so
-saving from it drops the explanatory comments. The documented copy always lives
+One difference worth knowing: **the panel writes `config.json` as plain JSON**,
+so saving from it drops the explanatory comments. The documented copy always lives
 in `config.example.json`, and `--init-config` restores it. Your previous file is
 kept as `config.json.bak` on every save.
 
@@ -79,7 +82,7 @@ node src/index.js --install-browser chrome Beta
 ```
 
 On a machine with no browser at all, the first launch fetches one by itself. The
-app has a **Get browser** button for the same thing.
+panel has a **Get browser** button for the same thing.
 
 | | |
 |---|---|
@@ -145,8 +148,8 @@ For those pages, run without any of it:
 node src/index.js --no-spoof --no-debug --url https://example.com/signup
 ```
 
-In the app: **Identity → Presets → No spoof**, and **Full stealth** puts it all
-back. You keep a disposable profile, an empty cookie jar, no history, everything
+In the panel: **Identity → Presets → No spoof**, and **Full stealth** puts it
+all back. You keep a disposable profile, an empty cookie jar, no history, everything
 wiped on exit, and the network binding. What you give up is the browser lying
 about itself — which is what the check objected to.
 
@@ -154,14 +157,14 @@ about itself — which is what the check objected to.
 
 ## What it can do
 
-Each of these is one config key, one CLI flag, and one control in the app. The
+Each of these is one config key, one CLI flag, and one control in the panel. The
 full reference is in **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
 
 **Status tab.** The first tab of a session is a local page showing the current
 public IP, its quality score, the identity in use, and — measured live in that
 page — what websites *actually* see, each row tagged `match` or `MISMATCH`. A
 failed override is visible immediately. It has the same Simple / Advanced switch
-as the app.
+as the panel.
 
 **IP quality.** The address is scored out of 100: a flagged proxy or VPN costs
 50, a datacenter range 35, a browser timezone that disagrees with the IP 15, a
@@ -204,8 +207,8 @@ Everything reproduced, with what is understood and what is not, is on one page:
 **[docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md)**.
 
 The short version: Brave can crash on `Ctrl+T` with full spoofing armed; bot
-checks may refuse to finish (use **No spoof**); the desktop app is Windows-only;
-Brave cannot be auto-downloaded on Linux.
+checks may refuse to finish (use **No spoof**); Brave cannot be auto-downloaded
+on Linux.
 
 ---
 
@@ -277,7 +280,9 @@ page never races the spoofing setup.
 | `src/layout.js` | Monitor detection and tiling |
 | `src/logger.js` | File + console logger |
 | `src/cdp.js`, `src/ws.js` | DevTools Protocol client, hand-written WebSocket |
-| `gui/` | The Windows app (`build-exe.cmd`) |
+| `src/app.js` | The control panel server and its API |
+| `app/` | The panel page: markup, client logic, field schema, stylesheet |
+| `tools/build-css.js` | Compiles `app/tailwind.css` from the classes in use |
 
 ---
 
@@ -289,6 +294,21 @@ page never races the spoofing setup.
 | [docs/LINUX.md](docs/LINUX.md) | Running on Linux and macOS |
 | [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md) | Known bugs and workarounds |
 | [config.example.json](config.example.json) | The same reference, inline in the config |
+
+### Styling
+
+The panel and the status page are laid out with Tailwind. `app/tailwind.css` is
+committed, so running the tool needs no npm and no build step, and the status
+page loads inside a disposable session with no third-party script and no
+outbound request. After changing a class name, regenerate it:
+
+```bash
+node tools/build-css.js
+```
+
+That collects every class the two pages can produce, compiles them with
+Tailwind's own compiler inside the browser this project already knows how to
+find, and writes back only the utilities actually used — currently about 14 KB.
 
 ---
 

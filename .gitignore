@@ -10,7 +10,4 @@ config.json
 config.local.json
 config.json.bak
 
-# Build artifact - rebuild with build-exe.cmd
-StealthBrowser.exe
-
 node_modules/

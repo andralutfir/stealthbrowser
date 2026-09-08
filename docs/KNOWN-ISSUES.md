@@ -63,7 +63,7 @@ signals a challenge platform looks for.
 node src/index.js --no-spoof --no-debug --url https://example.com/signup
 ```
 
-In the app: **Identity → Presets → No spoof**. You keep the disposable profile,
+In the panel: **Identity → Presets → No spoof**. You keep the disposable profile,
 the empty cookie jar and the network binding; you give up the browser lying
 about itself, which is what the check objected to.
 
@@ -93,15 +93,7 @@ at the cost of captcha image challenges rendering as empty boxes.
 
 ---
 
-## 5. The desktop app is Windows only
-
-`StealthBrowser.exe` is WinForms, built with the C# compiler that ships with
-Windows. There is no Linux or macOS build. Everything the app does is available
-from the CLI and the shell scripts — see [LINUX.md](LINUX.md).
-
----
-
-## 6. Brave has no portable Linux archive
+## 5. Brave has no portable Linux archive
 
 `--install-browser brave` works on Windows and macOS. On Linux, Brave publishes
 packages rather than a portable archive, so the downloader skips it. Chrome for
@@ -109,11 +101,12 @@ Testing and Chromium snapshots both fetch normally on Linux.
 
 ---
 
-## 7. Combo box arrows keep the system light chrome
+## 6. The panel needs a browser to show itself
 
-In the app's dark theme the drop-down button drawn by Windows on a `ComboBox`
-stays light. Everything around it is owner-drawn; that one control part is not
-reachable without replacing the whole control. Purely cosmetic.
+`--app` opens the panel as an app window using the browser the config selects.
+With no browser installed and the automatic download turned off, there is
+nothing to open it with: the launcher prints the panel's local URL instead and
+keeps serving it, so it can be opened by hand from any browser.
 
 ---
 

@@ -10,9 +10,28 @@
  * The public IP is fetched by the page (not by Node) on purpose: that request
  * travels the exact same path as the browser's normal traffic, so the address
  * shown is the real egress IP, proxy and interface binding included.
+ *
+ * Styling is the stylesheet built by tools/build-css.js, served from disk. No
+ * CDN, no third-party script: a page that opens inside a disposable session
+ * should not make a request nobody asked for.
  */
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
+
+const { PROJECT_ROOT } = require('./config');
+
+const CSS_FILE = path.join(PROJECT_ROOT, 'app', 'tailwind.css');
+
+/*
+ * The quality band picks its colour at runtime, so those class names never
+ * appear whole in the source and the stylesheet builder cannot see them.
+ * Spelling them out once here is what keeps the score from rendering colourless:
+ *   text-emerald-400 text-amber-400 text-rose-400 text-zinc-500
+ *   bg-emerald-400 bg-amber-400 bg-rose-400
+ *   bg-emerald-500/15 bg-amber-500/15 bg-rose-500/15
+ */
 
 /**
  * Address classification, no API key needed. `proxy`, `hosting` and `mobile`
@@ -26,79 +45,18 @@ const crypto = require('crypto');
 const DEFAULT_QUALITY_SERVICE = 'http://ip-api.com/json/?fields=status,message,country,'
   + 'countryCode,city,timezone,isp,org,as,reverse,mobile,proxy,hosting,query';
 
-const PAGE_CSS = `
-:root{color-scheme:light dark;--bg:#f6f7f9;--card:#fff;--fg:#14161a;--dim:#6b7280;
---line:#e3e6ea;--ok:#0a7d32;--warn:#a15c00;--bad:#b42318;--accent:#2f6feb}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#171a20;--fg:#e6e8ec;
---dim:#9aa1ac;--line:#252932;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--accent:#6ea8fe}}
-*{box-sizing:border-box}
-body{margin:0;padding:26px 24px 32px;background:var(--bg);color:var(--fg);
-font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.wrap{max-width:1120px;margin:0 auto}
-h1{font-size:22px;margin:0 0 3px;font-weight:650;letter-spacing:-.2px}
-.sub{color:var(--dim);font-size:14px;margin-bottom:20px}
-.top{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px}
-.top .sub{margin-bottom:0}
-.modes{margin-left:auto;display:flex;gap:0;border:1px solid var(--line);
-border-radius:8px;overflow:hidden;background:var(--card);flex:none}
-.modes button{appearance:none;border:0;background:transparent;color:var(--dim);
-font:600 13.5px/1 inherit;padding:9px 16px;cursor:pointer}
-.modes button.on{background:var(--accent);color:#fff}
-.modes button:not(.on):hover{color:var(--fg)}
-.ip{background:var(--card);border:1px solid var(--line);border-radius:10px;
-padding:16px 18px 14px;margin-bottom:14px}
-.ipmain{display:flex;flex-wrap:wrap;gap:18px 26px;align-items:baseline}
-.ipmain b{font-size:30px;font-weight:650;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
-.ip .lbl{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.6px;
-display:block;margin-bottom:4px}
-.ipmain>div{font-size:15.5px}
-.qspot{margin-left:auto;text-align:right}
-.qspot .pill{vertical-align:4px;margin-left:6px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:760px){.grid{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px 18px 14px}
-.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);
-margin:14px 0 9px;font-weight:600}
-table{width:100%;border-collapse:collapse}
-td{padding:7px 0;vertical-align:top;border-bottom:1px solid var(--line);font-size:14.5px}
-tr:last-child td{border-bottom:0}
-td.k{color:var(--dim);width:38%;padding-right:12px;white-space:nowrap}
-td.v{word-break:break-word;font-variant-numeric:tabular-nums}
-.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13.5px}
-.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12.5px;font-weight:600}
-.p-ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
-.p-bad{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
-.p-warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
-.links{margin-top:16px;font-size:14px;color:var(--dim)}
-.links a{color:var(--accent);text-decoration:none;margin-right:14px}
-.links a:hover{text-decoration:underline}
-.muted{color:var(--dim)}
-.qwrap{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
-.qbarwrap{height:8px;border-radius:6px;overflow:hidden;margin-bottom:8px;
-background:color-mix(in srgb,var(--fg) 10%,transparent)}
-.qbar{height:100%;width:0;border-radius:6px;transition:width .55s ease}
-.qnote{color:var(--dim);font-size:13px;margin-top:10px;line-height:1.5}
-td.n{text-align:right;white-space:nowrap;width:82px;color:var(--dim);
-font-variant-numeric:tabular-nums;font-size:13px}
-
-/* Simple view: the same session, said in sentences instead of fields. */
-.simple .adv-only{display:none}
-.advanced .simple-only{display:none}
-.verdict{border-radius:10px;padding:15px 18px;margin-bottom:14px;font-size:16px;
-border:1px solid var(--line);background:var(--card);display:flex;gap:13px;align-items:flex-start}
-.verdict .dot{width:11px;height:11px;border-radius:50%;flex:none;margin-top:6px}
-.verdict b{display:block;font-size:17.5px;font-weight:650;margin-bottom:2px}
-.verdict span{color:var(--dim);font-size:14.5px}
-.v-ok .dot{background:var(--ok)} .v-warn .dot{background:var(--warn)} .v-bad .dot{background:var(--bad)}
-.plain td{font-size:15.5px;padding:10px 0}
-.plain td.k{width:34%;color:var(--dim)}
-.plain .why{display:block;color:var(--dim);font-size:13.5px;margin-top:2px}
-`;
-
 /** Runs in the page: measures what a real website would see. */
 function pageScript(DATA) {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '-' : s);
+
+  const CELL_K = 'w-[38%] py-2 pl-5 pr-3 align-top text-zinc-400';
+  const CELL_V = 'py-2 pr-5 align-top tabular-nums break-words';
+  const MONO = ' font-mono text-[13px]';
+  const PILL = 'ml-1 inline-block rounded-full px-2 py-0.5 text-[12px] font-semibold ';
+  const P_OK = PILL + 'bg-emerald-500/15 text-emerald-400';
+  const P_BAD = PILL + 'bg-rose-500/15 text-rose-400';
+  const P_WARN = PILL + 'bg-amber-500/15 text-amber-400';
 
   const gl = (() => {
     try {
@@ -140,10 +98,12 @@ function pageScript(DATA) {
     cookies: document.cookie ? document.cookie.split(';').length : 0,
   };
 
-  const row = (k, v, cls) => `<tr><td class="k">${k}</td><td class="v ${cls || ''}">${esc(v)}</td></tr>`;
+  const row = (k, v, mono) =>
+    `<tr class="border-b border-zinc-800 last:border-0"><td class="${CELL_K}">${k}</td>`
+    + `<td class="${CELL_V}${mono ? MONO : ''}">${esc(v)}</td></tr>`;
 
   $('set').innerHTML = [
-    row('User-Agent', DATA.identity.userAgent, 'mono'),
+    row('User-Agent', DATA.identity.userAgent, true),
     row('Platform', DATA.identity.chPlatform + ' ' + DATA.identity.platformVersion),
     row('Languages', DATA.identity.languages.join(', ')),
     row('Timezone', DATA.identity.timezone),
@@ -151,7 +111,7 @@ function pageScript(DATA) {
     row('CPU / RAM', DATA.identity.cores + ' cores / ' + DATA.identity.memory + ' GB'),
     row('GPU', DATA.identity.gpu),
     row('Geolocation', DATA.identity.geo),
-    row('Seed', DATA.identity.seed, 'mono'),
+    row('Seed', DATA.identity.seed, true),
   ].join('');
 
   const cmp = (a, b) => {
@@ -163,11 +123,11 @@ function pageScript(DATA) {
   const problems = [];
   const mark = (okFlag, label) => {
     if (!okFlag && label) problems.push(label);
-    return `<span class="pill ${okFlag ? 'p-ok' : 'p-bad'}">${okFlag ? 'match' : 'MISMATCH'}</span>`;
+    return `<span class="${okFlag ? P_OK : P_BAD}">${okFlag ? 'match' : 'MISMATCH'}</span>`;
   };
 
   $('seen').innerHTML = [
-    row('User-Agent', seen.ua, 'mono'),
+    row('User-Agent', seen.ua, true),
     row('Platform', seen.platform + ' ' + mark(cmp(seen.platform, DATA.identity.chPlatform), 'platform')),
     row('Languages', seen.languages + ' ' + mark(cmp(seen.locale, DATA.identity.languages[0]), 'languages')),
     row('Timezone', seen.timezone + ' (UTC' + (seen.offset >= 0 ? '+' : '') + seen.offset + ') ' + mark(cmp(seen.timezone, DATA.identity.timezone), 'timezone')),
@@ -175,7 +135,7 @@ function pageScript(DATA) {
     row('Window', seen.window),
     row('CPU / RAM', seen.cores + ' cores / ' + seen.memory + ' ' + mark(String(seen.cores) === String(DATA.identity.cores), 'CPU cores')),
     row('GPU', (seen.gpu || '-') + ' ' + mark(cmp(seen.gpu || '', DATA.identity.gpu), 'GPU')),
-    row('Canvas hash', seen.canvas, 'mono'),
+    row('Canvas hash', seen.canvas, true),
     row('navigator.webdriver', seen.webdriver + ' ' + mark(seen.webdriver === 'false', 'navigator.webdriver')),
     row('Cookies stored', seen.cookies + ' ' + mark(seen.cookies === 0, 'leftover cookies')),
   ].join('');
@@ -202,8 +162,12 @@ function pageScript(DATA) {
     catch (e) { return seen.locale; }
   })();
 
-  const prow = (k, v, why) => `<tr><td class="k">${k}</td><td class="v">${esc(v)}`
-    + (why ? `<span class="why">${why}</span>` : '') + '</td></tr>';
+  const prow = (k, v, why) =>
+    `<tr class="border-b border-zinc-800 last:border-0">`
+    + `<td class="w-[34%] py-3 pl-5 pr-3 align-top text-zinc-400">${k}</td>`
+    + `<td class="py-3 pr-5 align-top">${esc(v)}`
+    + (why ? `<span class="mt-1 block text-[13px] text-zinc-500">${why}</span>` : '')
+    + '</td></tr>';
 
   function drawSimple() {
     const tzClash = ipZone && ipZone !== seen.timezone;
@@ -227,25 +191,30 @@ function pageScript(DATA) {
     if (tzClash) issues.push('clock vs connection country');
     if (quality && quality.score < 65) issues.push('address quality ' + quality.score + '%');
 
-    const v = $('verdict');
+    const dot = $('verdict-dot');
+    const title = $('verdict-title');
+    const detail = $('verdict-detail');
     if (!issues.length) {
-      v.className = 'verdict simple-only v-ok';
-      v.innerHTML = '<span class="dot"></span><div><b>Everything checks out</b>'
-        + '<span>The identity landed, nothing was carried over from a previous session, '
-        + 'and the connection matches what sites will be told.</span></div>';
+      dot.className = 'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400';
+      title.textContent = 'Everything checks out';
+      detail.textContent = 'The identity landed, nothing was carried over from a previous session, '
+        + 'and the connection matches what sites will be told.';
     } else {
       const bad = issues.length > 2 || problems.length > 1;
-      v.className = 'verdict simple-only ' + (bad ? 'v-bad' : 'v-warn');
-      v.innerHTML = '<span class="dot"></span><div><b>' + issues.length
-        + (issues.length === 1 ? ' thing to look at' : ' things to look at') + '</b>'
-        + '<span>' + issues.join(' · ') + '. Switch to Advanced for the detail.</span></div>';
+      dot.className = 'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ' + (bad ? 'bg-rose-400' : 'bg-amber-400');
+      title.textContent = issues.length + (issues.length === 1 ? ' thing to look at' : ' things to look at');
+      detail.textContent = issues.join(' · ') + '. Switch to Advanced for the detail.';
     }
   }
 
+  const ON = 'bg-indigo-500 text-white';
+  const OFF = 'text-zinc-400 hover:text-zinc-100';
   const setMode = (m) => {
-    document.body.className = m;
-    $('m-simple').className = m === 'simple' ? 'on' : '';
-    $('m-advanced').className = m === 'advanced' ? 'on' : '';
+    const simple = m === 'simple';
+    for (const node of document.querySelectorAll('.simple-only')) node.classList.toggle('hidden', !simple);
+    for (const node of document.querySelectorAll('.adv-only')) node.classList.toggle('hidden', simple);
+    $('m-simple').className = 'px-4 py-2 text-[13px] font-semibold ' + (simple ? ON : OFF);
+    $('m-advanced').className = 'px-4 py-2 text-[13px] font-semibold ' + (simple ? OFF : ON);
   };
   $('m-simple').onclick = () => setMode('simple');
   $('m-advanced').onclick = () => setMode('advanced');
@@ -256,7 +225,7 @@ function pageScript(DATA) {
     row('Connection', DATA.network),
     row('Proxy', DATA.proxy || 'not used'),
     row('Bandwidth mode', DATA.bandwidth),
-    row('Profile', DATA.profile, 'mono muted'),
+    row('Profile', DATA.profile, true),
     row('Started', DATA.time),
   ].join('');
 
@@ -271,6 +240,7 @@ function pageScript(DATA) {
     drawSimple();
     return;
   }
+
   let ipResolved = false;
   const timeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
   const ask = (url) => Promise.race([
@@ -288,7 +258,7 @@ function pageScript(DATA) {
     .then((j) => {
       ipResolved = true;
       $('ipval').textContent = j.ip || j.query || j.origin || '-';
-      $('ipval').style.color = '';
+      $('ipval').classList.remove('text-rose-400');
       const bits = [j.city, j.region, j.country || j.country_name].filter(Boolean);
       $('ipgeo').textContent = bits.length ? bits.join(', ') : 'not reported';
       $('ipnote').textContent = j.org || j.asn || 'via this session network path';
@@ -297,7 +267,7 @@ function pageScript(DATA) {
     })
     .catch((e) => {
       $('ipval').textContent = 'failed';
-      $('ipval').style.color = 'var(--bad)';
+      $('ipval').classList.add('text-rose-400');
       $('ipnote').textContent = 'could not reach the IP service (' + e.message + ')';
       ipPlace = 'could not be checked';
       drawSimple();
@@ -311,11 +281,6 @@ function pageScript(DATA) {
   if (!DATA.checkQuality) { quality = null; drawSimple(); return; }
 
   const qnote = (t) => { $('qnote').textContent = t; };
-  const qfail = (msg) => {
-    $('qscore').textContent = 'n/a';
-    $('qscore').style.color = 'var(--dim)';
-    qnote(msg);
-  };
 
   ask(DATA.qualityService).then((q) => {
     if (q.status && q.status !== 'success') throw new Error(q.message || q.status);
@@ -329,20 +294,18 @@ function pageScript(DATA) {
     const tzKnown = !!ipTz && !!seen.timezone;
     const tzMatch = tzKnown && ipTz === seen.timezone;
 
-    const checks = [];
-    const add = (label, value, cost, good) => {
-      checks.push({ label: label, value: value, cost: cost, good: good });
-    };
-
     // The card header above already names the address and its network - unless
     // the IP service failed, in which case this lookup fills those in rather
     // than leaving three dashes next to a working score.
     if (!ipResolved) {
-      if (q.query) { $('ipval').textContent = q.query; $('ipval').style.color = ''; }
+      if (q.query) { $('ipval').textContent = q.query; $('ipval').classList.remove('text-rose-400'); }
       const bits = [q.city, q.country].filter(Boolean);
       if (bits.length) $('ipgeo').textContent = bits.join(', ');
       $('ipnote').textContent = q.isp || q.org || q.as || 'via this session network path';
     }
+
+    const checks = [];
+    const add = (label, value, cost, good) => checks.push({ label, value, cost, good });
 
     add('Address type',
       isProxy ? 'proxy, VPN or Tor exit' : isHosting ? 'datacenter / hosting range' : 'residential or business ISP',
@@ -359,92 +322,135 @@ function pageScript(DATA) {
     for (const c of checks) score -= c.cost;
     score = Math.max(0, Math.min(100, score));
 
-    const band = score >= 85 ? { t: 'clean', c: 'ok' }
-      : score >= 65 ? { t: 'usable', c: 'ok' }
-        : score >= 40 ? { t: 'questionable', c: 'warn' }
-          : { t: 'poor', c: 'bad' };
+    const band = score >= 85 ? { t: 'clean', c: 'emerald' }
+      : score >= 65 ? { t: 'usable', c: 'emerald' }
+        : score >= 40 ? { t: 'questionable', c: 'amber' }
+          : { t: 'poor', c: 'rose' };
+
+    ipZone = ipTz || null;
+    quality = { score, band: band.c, label: band.t };
+    if (!ipPlace) { const b = [q.city, q.country].filter(Boolean); if (b.length) ipPlace = b.join(', '); }
+    drawSimple();
 
     $('qscore').textContent = score + '%';
-    $('qscore').style.color = 'var(--' + band.c + ')';
-    $('qlabel').className = 'pill p-' + band.c;
+    $('qscore').className = 'text-3xl font-semibold tabular-nums tracking-tight text-' + band.c + '-400';
+    $('qlabel').className = PILL + 'bg-' + band.c + '-500/15 text-' + band.c + '-400 align-middle';
     $('qlabel').textContent = band.t;
+    $('qbar').className = 'h-full rounded-full bg-' + band.c + '-400 transition-all duration-500';
     $('qbar').style.width = score + '%';
-    $('qbar').style.background = 'var(--' + band.c + ')';
 
     $('qrows').innerHTML = checks.map((c) => {
       const pill = c.cost > 0
-        ? '<span class="pill p-' + (c.cost >= 30 ? 'bad' : 'warn') + '">&minus;' + c.cost + '</span>'
-        : c.good ? '<span class="pill p-ok">ok</span>' : '';
-      return '<tr><td class="k">' + c.label + '</td><td class="v">' + esc(c.value)
-        + '</td><td class="n">' + pill + '</td></tr>';
+        ? `<span class="${c.cost >= 30 ? P_BAD : P_WARN}">&minus;${c.cost}</span>`
+        : c.good ? `<span class="${P_OK}">ok</span>` : '';
+      return '<tr class="border-b border-zinc-800 last:border-0">'
+        + `<td class="${CELL_K}">${c.label}</td>`
+        + `<td class="${CELL_V}">${esc(c.value)}</td>`
+        + `<td class="w-24 py-2 pr-5 text-right align-top">${pill}</td></tr>`;
     }).join('');
-
-    ipZone = ipTz || null;
-    quality = { score: score, band: band.c, label: band.t };
-    if (!ipPlace) { const b = [q.city, q.country].filter(Boolean); if (b.length) ipPlace = b.join(', '); }
-    drawSimple();
 
     qnote('Starts at 100 and subtracts what the lookup reported. This is how the address itself '
       + 'classifies, not a fraud-score subscription - a site running its own scoring can disagree. '
       + 'Source: ' + DATA.qualityService.replace(/^https?:\/\//, '').split('/')[0]);
   }).catch((e) => {
-    qfail('Quality lookup unavailable (' + e.message + '). No score is shown rather than a guessed one.');
+    $('qscore').textContent = 'n/a';
+    $('qscore').className = 'text-3xl font-semibold tracking-tight text-zinc-500';
+    qnote('Quality lookup unavailable (' + e.message + '). No score is shown rather than a guessed one.');
     quality = null;
     drawSimple();
   });
 }
 
-function renderHtml(data) {
+function renderHtml(data, base) {
   const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  const card = 'rounded-xl border border-zinc-800 bg-zinc-900/40';
+  const h2 = 'px-5 pt-4 text-[12px] font-semibold uppercase tracking-wider text-zinc-500';
   return `<!doctype html>
-<html lang="id"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Session ${data.tag || 'stealthbrowser'}</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%232f6feb'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23fff'/%3E%3C/svg%3E">
-<style>${PAGE_CSS}</style></head>
-<body class="advanced"><div class="wrap">
-<div class="top">
-  <div>
-    <h1>New session ready${data.tag ? ' &mdash; ' + data.tag : ''}</h1>
-    <div class="sub">Disposable profile. The identity below applies to this session only and changes the next time the browser opens.</div>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%236366f1'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="${base}tailwind.css">
+</head>
+<body class="bg-zinc-950 text-zinc-100 antialiased">
+<div class="mx-auto max-w-5xl px-6 py-8">
+
+  <div class="mb-6 flex flex-wrap items-start gap-4">
+    <div class="min-w-0">
+      <h1 class="text-2xl font-semibold tracking-tight">New session ready${data.tag ? ' &mdash; ' + data.tag : ''}</h1>
+      <p class="mt-1 text-[15px] text-zinc-400">Disposable profile. The identity below applies to this session only
+        and changes the next time the browser opens.</p>
+    </div>
+    <div class="ml-auto flex shrink-0 overflow-hidden rounded-lg border border-zinc-700">
+      <button type="button" id="m-simple" class="px-4 py-2 text-[13px] font-semibold text-zinc-400 hover:text-zinc-100">Simple</button>
+      <button type="button" id="m-advanced" class="px-4 py-2 text-[13px] font-semibold text-zinc-400 hover:text-zinc-100">Advanced</button>
+    </div>
   </div>
-  <div class="modes">
-    <button type="button" id="m-simple">Simple</button>
-    <button type="button" id="m-advanced">Advanced</button>
+
+  <div class="simple-only mb-4 flex items-start gap-3 ${card} px-5 py-4">
+    <span id="verdict-dot" class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-zinc-600"></span>
+    <div>
+      <b id="verdict-title" class="block text-[17px] font-semibold">Checking&hellip;</b>
+      <span id="verdict-detail" class="text-[14px] text-zinc-400">Reading what this session actually reports.</span>
+    </div>
   </div>
-</div>
 
-<div class="verdict simple-only" id="verdict"><span class="dot"></span><div><b>Checking&hellip;</b><span>Reading what this session actually reports.</span></div></div>
-
-<div class="ip">
-  <div class="ipmain">
-    <div><span class="lbl">Current public IP</span><b id="ipval">loading&hellip;</b></div>
-    <div><span class="lbl">Location</span><span id="ipgeo" class="muted">&mdash;</span></div>
-    <div><span class="lbl">Network</span><span id="ipnote" class="muted">&mdash;</span></div>
-${data.checkQuality ? `    <div class="qspot"><span class="lbl">IP quality</span><b id="qscore">checking&hellip;</b><span id="qlabel"></span></div>` : ''}
+  <div class="mb-4 ${card} px-5 py-4">
+    <div class="flex flex-wrap items-baseline gap-x-8 gap-y-4">
+      <div>
+        <span class="mb-1 block text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Current public IP</span>
+        <b id="ipval" class="text-3xl font-semibold tabular-nums tracking-tight">loading&hellip;</b>
+      </div>
+      <div>
+        <span class="mb-1 block text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Location</span>
+        <span id="ipgeo" class="text-[15px] text-zinc-400">&mdash;</span>
+      </div>
+      <div>
+        <span class="mb-1 block text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Network</span>
+        <span id="ipnote" class="text-[15px] text-zinc-400">&mdash;</span>
+      </div>
+${data.checkQuality ? `      <div class="ml-auto text-right">
+        <span class="mb-1 block text-[12px] font-semibold uppercase tracking-wider text-zinc-500">IP quality</span>
+        <b id="qscore" class="text-3xl font-semibold tabular-nums tracking-tight">checking&hellip;</b>
+        <span id="qlabel"></span>
+      </div>` : ''}
+    </div>
+${data.checkQuality ? `    <div class="mt-4 border-t border-zinc-800 pt-3">
+      <div class="mb-2 h-2 overflow-hidden rounded-full bg-zinc-800">
+        <div id="qbar" class="h-full w-0 rounded-full bg-zinc-600"></div>
+      </div>
+      <table class="w-full text-[15px]"><tbody id="qrows"></tbody></table>
+      <p id="qnote" class="mt-2 text-[13px] leading-relaxed text-zinc-500">Asking the lookup service what this address looks like&hellip;</p>
+    </div>` : ''}
   </div>
-${data.checkQuality ? `  <div class="qwrap">
-    <div class="qbarwrap"><div class="qbar" id="qbar"></div></div>
-    <table id="qrows"></table>
-    <div class="qnote" id="qnote">Asking the lookup service what this address looks like&hellip;</div>
-  </div>` : ''}
-</div>
 
-<div class="card simple-only"><h2>In plain words</h2><table class="plain" id="plain"></table></div>
+  <div class="simple-only ${card} pb-3">
+    <h2 class="${h2}">In plain words</h2>
+    <table class="w-full px-5 text-[15px]"><tbody id="plain"></tbody></table>
+  </div>
 
-<div class="card adv-only"><h2>Session</h2><table id="sess"></table></div>
+  <div class="adv-only ${card} pb-3">
+    <h2 class="${h2}">Session</h2>
+    <table class="w-full text-[15px]"><tbody id="sess"></tbody></table>
+  </div>
 
-<div class="grid adv-only" style="margin-top:14px">
-  <div class="card"><h2>Identity applied</h2><table id="set"></table></div>
-  <div class="card"><h2>What websites actually see</h2><table id="seen"></table></div>
-</div>
+  <div class="adv-only mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div class="${card} pb-3">
+      <h2 class="${h2}">Identity applied</h2>
+      <table class="w-full text-[15px]"><tbody id="set"></tbody></table>
+    </div>
+    <div class="${card} pb-3">
+      <h2 class="${h2}">What websites actually see</h2>
+      <table class="w-full text-[15px]"><tbody id="seen"></tbody></table>
+    </div>
+  </div>
 
-<div class="links adv-only">
-  Test further:
-  <a href="https://abrahamjuliot.github.io/creepjs/" target="_blank" rel="noreferrer">CreepJS</a>
-  <a href="https://browserleaks.com/webrtc" target="_blank" rel="noreferrer">WebRTC leak</a>
-  <a href="https://www.dnsleaktest.com/" target="_blank" rel="noreferrer">DNS leak</a>
-</div>
+  <p class="adv-only mt-4 text-[14px] text-zinc-500">
+    Test further:
+    <a class="ml-3 text-indigo-400 hover:underline" href="https://abrahamjuliot.github.io/creepjs/" target="_blank" rel="noreferrer">CreepJS</a>
+    <a class="ml-3 text-indigo-400 hover:underline" href="https://browserleaks.com/webrtc" target="_blank" rel="noreferrer">WebRTC leak</a>
+    <a class="ml-3 text-indigo-400 hover:underline" href="https://www.dnsleaktest.com/" target="_blank" rel="noreferrer">DNS leak</a>
+  </p>
 </div>
 <script>(${pageScript.toString()})(${json});</script>
 </body></html>`;
@@ -459,10 +465,22 @@ class StatusPage {
     // A random path keeps the page from being trivially reachable by anything
     // else that happens to be poking at localhost.
     this.token = crypto.randomBytes(9).toString('hex');
-    const html = renderHtml(this._data());
+    const html = renderHtml(this._data(), `/${this.token}/`);
     this.server = http.createServer((req, res) => {
       const url = (req.url || '').split('?')[0];
-      if (url !== `/${this.token}`) {
+      if (url === `/${this.token}/tailwind.css`) {
+        fs.readFile(CSS_FILE, (err, buf) => {
+          if (err) {
+            res.writeHead(404, { 'content-type': 'text/plain' });
+            res.end('app/tailwind.css is missing - run: node tools/build-css.js');
+            return;
+          }
+          res.writeHead(200, { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'no-store' });
+          res.end(buf);
+        });
+        return;
+      }
+      if (url !== `/${this.token}/` && url !== `/${this.token}`) {
         res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
         return;
       }
@@ -489,10 +507,10 @@ class StatusPage {
       bandwidth: o.bandwidth || 'off',
       profile: o.profile.dir,
       time: new Date().toLocaleString('en-GB'),
+      mode: o.mode === 'simple' ? 'simple' : 'advanced',
       checkIp: o.checkIp !== false,
       ipService: o.ipService || 'https://ipinfo.io/json',
       ipFallback: o.ipFallback || 'https://api.ipify.org?format=json',
-      mode: o.mode === 'simple' ? 'simple' : 'advanced',
       checkQuality: o.checkIp !== false && o.checkQuality !== false,
       qualityService: o.qualityService || DEFAULT_QUALITY_SERVICE,
       identity: {
@@ -516,7 +534,7 @@ class StatusPage {
       this.server.once('error', reject);
       this.server.listen(0, '127.0.0.1', () => {
         this.port = this.server.address().port;
-        this.url = `http://127.0.0.1:${this.port}/${this.token}`;
+        this.url = `http://127.0.0.1:${this.port}/${this.token}/`;
         resolve(this.url);
       });
     });
